@@ -1,0 +1,21 @@
+server:
+  name: "project-user"
+  addr: ":8080"
+
+zap:
+  debugFileName: "D:\\go\\project\\project_ws\\logs\\debug\\project-debug.log"
+  infoFileName: "D:\\go\\project\\project_ws\\logs\\info\\project-info.log"
+  warnFileName: "D:\\go\\project\\project_ws\\logs\\error\\project-error.log"
+  maxSize: 500,
+  maxAge: 28,
+  MaxBackups: 3
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+
+grpc:
+  addr: ":8881"
+  name: "project-user-server"
