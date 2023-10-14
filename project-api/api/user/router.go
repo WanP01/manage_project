@@ -22,5 +22,5 @@ func (ru *RouterUser) Route(r *gin.Engine) {
 	InitUserGrpcClient()
 	//注册验证码函数
 	h := NewHandlerUser()
-	r.POST("api/project/login/getCaptcha", h.getCaptcha) // 该函数调用User模块Grpc的验证码服务
+	r.POST("/project/login/getCaptcha", h.getCaptcha) // 该函数调用User模块Grpc的验证码服务
 }

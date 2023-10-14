@@ -13,10 +13,15 @@ var AppConf = InitConfig()
 type Config struct {
 	viper *viper.Viper
 	Sc    *ServerConf
+	Ec    *EtcdConf
 }
 type ServerConf struct {
 	Name string
 	Addr string
+}
+
+type EtcdConf struct {
+	Addrs []string
 }
 
 func InitConfig() *Config {
@@ -33,6 +38,7 @@ func InitConfig() *Config {
 	}
 	conf.InitServerConfig()
 	conf.InitZapLog()
+	conf.InitEtcdConfig()
 	return conf
 }
 
@@ -60,4 +66,16 @@ func (c *Config) InitZapLog() {
 	if err := logs.InitLogger(lg); err != nil {
 		log.Fatalln(err)
 	}
+}
+
+// Etcd 配置读取
+func (c *Config) InitEtcdConfig() {
+	ec := &EtcdConf{}
+	var addrs []string
+	err := c.viper.UnmarshalKey("etcd.addrs", &addrs)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	ec.Addrs = addrs
+	c.Ec = ec
 }

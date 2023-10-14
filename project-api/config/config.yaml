@@ -1,6 +1,6 @@
 server:
   name: "project-api"
-  addr: ":8045"
+  addr: "127.0.0.1:80"
 
 zap:
   debugFileName: "D:\\go\\project\\project_ws\\logs\\debug\\project-debug.log"
@@ -9,3 +9,7 @@ zap:
   maxSize: 500,
   maxAge: 28,
   MaxBackups: 3
+
+etcd:
+  addrs:
+    - "127.0.0.1:2379"

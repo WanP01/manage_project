@@ -16,6 +16,7 @@ type Config struct {
 	viper *viper.Viper
 	Sc    *ServerConf
 	Gc    *GrpcConf
+	Ec    *EtcdConf
 }
 type ServerConf struct {
 	Name string
@@ -23,8 +24,14 @@ type ServerConf struct {
 }
 
 type GrpcConf struct {
-	Name string
-	Addr string
+	Name    string
+	Addr    string
+	Version string
+	Weight  string
+}
+
+type EtcdConf struct {
+	Addrs []string
 }
 
 func InitConfig() *Config {
@@ -42,6 +49,7 @@ func InitConfig() *Config {
 	conf.InitServerConfig()
 	conf.InitZapLog()
 	conf.InitGrpcConfig()
+	conf.InitEtcdConfig()
 	return conf
 }
 
@@ -57,10 +65,24 @@ func (c *Config) InitServerConfig() {
 // GRPC服务配置读取
 func (c *Config) InitGrpcConfig() {
 	gc := &GrpcConf{
-		Addr: c.viper.GetString("grpc.addr"),
-		Name: c.viper.GetString("grpc.name"),
+		Addr:    c.viper.GetString("grpc.addr"),
+		Name:    c.viper.GetString("grpc.name"),
+		Version: c.viper.GetString("grpc.version"),
+		Weight:  c.viper.GetString("grpc.weight"),
 	}
 	c.Gc = gc
+}
+
+// Etcd 配置读取
+func (c *Config) InitEtcdConfig() {
+	ec := &EtcdConf{}
+	var addrs []string
+	err := c.viper.UnmarshalKey("etcd.addrs", &addrs)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	ec.Addrs = addrs
+	c.Ec = ec
 }
 
 // Zaplog读取配置并初始化

@@ -3,11 +3,14 @@ package router
 import (
 	"log"
 	"net"
+	"project-common/discovery"
+	"project-common/logs"
 	"project-user/config"
 	LoginServiceV1 "project-user/pkg/service/login.service.v1"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/resolver"
 )
 
 // 定义路由接口
@@ -56,7 +59,7 @@ type gRPCConfig struct {
 	RegisterFunc func(*grpc.Server)
 }
 
-// 注册grpc服务
+// 注册并启动grpc服务
 func RegisterGrpc() *grpc.Server {
 	c := &gRPCConfig{
 		Addr: config.AppConf.Gc.Addr,
@@ -78,4 +81,22 @@ func RegisterGrpc() *grpc.Server {
 		}
 	}()
 	return s
+}
+
+// 注册 Etcd 服务(Etcd服务单独启动)
+func RegisterEtcd() {
+	//注册grpc URL解析器
+	etcdRegister := discovery.NewResolver(config.AppConf.Ec.Addrs, logs.LG)
+	resolver.Register(etcdRegister)
+	// 构建 grpc 服务Server信息
+	srvInfo := discovery.Server{
+		Name: config.AppConf.Gc.Name,
+		Addr: config.AppConf.Gc.Addr,
+	}
+	//在Etcd 上注册服务信息
+	r := discovery.NewRegister(config.AppConf.Ec.Addrs, logs.LG)
+	_, err := r.Register(srvInfo, 5)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }

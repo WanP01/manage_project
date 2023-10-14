@@ -1,6 +1,6 @@
 server:
   name: "project-user"
-  addr: ":8080"
+  addr: "127.0.0.1:8080"
 
 zap:
   debugFileName: "D:\\go\\project\\project_ws\\logs\\debug\\project-debug.log"
@@ -17,5 +17,11 @@ redis:
   db: 0
 
 grpc:
-  addr: ":8881"
-  name: "project-user-server"
+  addr: "127.0.0.1:8881"
+  name: "user"
+  verison: "1.0.0"
+  weight: 2
+
+etcd:
+  addrs:
+    - "127.0.0.1:2379"
