@@ -31,6 +31,7 @@ func InitConfig() *Config {
 	conf.viper.SetConfigType("yaml")
 	conf.viper.AddConfigPath("/etc/manage_project/project-api")
 	conf.viper.AddConfigPath(workDir + "/project-api/config")
+	conf.viper.AddConfigPath(workDir + "/config")
 	err := conf.viper.ReadInConfig()
 	if err != nil {
 		log.Fatalln(err)

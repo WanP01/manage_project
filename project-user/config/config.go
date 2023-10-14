@@ -39,8 +39,9 @@ func InitConfig() *Config {
 	workDir, _ := os.Getwd()
 	conf.viper.SetConfigName("config")
 	conf.viper.SetConfigType("yaml")
-	// conf.viper.AddConfigPath("/etc/manage_project/project-user")
-	conf.viper.AddConfigPath(workDir + "/project-user/config")
+	conf.viper.AddConfigPath("/etc/manage_project/project-user") // docker linux 环境下读取配置
+	conf.viper.AddConfigPath(workDir + "/config")
+	conf.viper.AddConfigPath(workDir + "/project-user/config") // windows 源代码下读取配置
 	err := conf.viper.ReadInConfig()
 	if err != nil {
 		log.Fatalln(err)
