@@ -5,6 +5,7 @@ import (
 	"net"
 	"project-common/discovery"
 	"project-common/logs"
+	"project-grpc/user/login"
 	"project-user/config"
 	LoginServiceV1 "project-user/pkg/service/login.service.v1"
 
@@ -13,7 +14,7 @@ import (
 	"google.golang.org/grpc/resolver"
 )
 
-// 定义路由接口
+// Router 定义路由接口
 type Router interface {
 	Route(r *gin.Engine)
 }
@@ -59,12 +60,12 @@ type gRPCConfig struct {
 	RegisterFunc func(*grpc.Server)
 }
 
-// 注册并启动grpc服务
+// RegisterGrpc 注册并启动grpc服务
 func RegisterGrpc() *grpc.Server {
 	c := &gRPCConfig{
 		Addr: config.AppConf.Gc.Addr,
 		RegisterFunc: func(s *grpc.Server) {
-			LoginServiceV1.RegisterLoginServiceServer(s, LoginServiceV1.New())
+			login.RegisterLoginServiceServer(s, LoginServiceV1.New())
 		}}
 	s := grpc.NewServer()
 	c.RegisterFunc(s)
@@ -83,7 +84,7 @@ func RegisterGrpc() *grpc.Server {
 	return s
 }
 
-// 注册 Etcd 服务(Etcd服务单独启动)
+// RegisterEtcd 注册 Etcd 服务(Etcd服务单独启动)
 func RegisterEtcd() {
 	//注册grpc URL解析器
 	etcdRegister := discovery.NewResolver(config.AppConf.Ec.Addrs, logs.LG)

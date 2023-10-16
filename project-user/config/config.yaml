@@ -25,3 +25,17 @@ grpc:
 etcd:
   addrs:
     - "127.0.0.1:2379"
+
+mysql:
+  username: root
+  password: root
+  host: 127.0.0.1
+  port: 3306
+  db: msproject
+
+
+jwt:
+  accessExp: 7
+  refreshExp: 14
+  accessSecret: msproject
+  refreshSecret: ms_pproject

@@ -38,7 +38,7 @@ func NewRegister(etcdAddrs []string, logger *zap.Logger) *Register {
 	}
 }
 
-// 注册grpc 服务
+// Register 注册grpc 服务
 // 1. 新建etcd 连接
 // 2. 配置 注册信息 （Register 结构体）
 // 3.
@@ -75,7 +75,7 @@ func (r *Register) Register(srvInfo Server, ttl int64) (chan<- struct{}, error) 
 	return r.closeCh, nil
 }
 
-// Register 注册grpc 的关闭信号
+// Stop Register 注册grpc 的关闭信号
 func (r *Register) Stop() {
 	r.closeCh <- struct{}{} // 向 r.closeCh 通道发送信号，触发关闭动作
 }
@@ -180,7 +180,7 @@ func (r *Register) UpdateHandler() http.HandlerFunc {
 	})
 }
 
-// 从Etcd 获取grpc服务信息
+// GetServerInfo 从Etcd 获取grpc服务信息
 func (r *Register) GetServerInfo() (Server, error) {
 	resp, err := r.cli.Get(context.Background(), BuildRegPath(r.srvInfo)) // "/name/version/addr"
 	if err != nil {

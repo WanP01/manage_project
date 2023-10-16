@@ -1,7 +1,7 @@
 chcp 65001
 @echo off
 :loop
-@echo off&amp;color 0A
+@echo off&color 0A
 cls
 echo,
 echo 请选择要编译的系统环境：

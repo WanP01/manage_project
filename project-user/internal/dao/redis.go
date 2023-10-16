@@ -18,7 +18,7 @@ func init() {
 	}
 }
 
-// Redis 对 repo.Cache 的具体实现
+// RedisCache Redis 对 repo.Cache 的具体实现
 type RedisCache struct {
 	rdb *redis.Client
 }

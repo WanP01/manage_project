@@ -2,8 +2,10 @@ package common
 
 import "net/http"
 
-//手机验证码结构
+// 手机验证码结构
 type BusinessCode int
+
+// 返回结果模型
 type Result struct {
 	Code BusinessCode `json:"code"`
 	Msg  string       `json:"msg"`

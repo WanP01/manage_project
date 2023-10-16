@@ -6,9 +6,9 @@ import (
 	"net/http"
 	common "project-common"
 	"project-common/errs"
-	"project-user/pkg/dao"
+	"project-user/internal/dao"
+	"project-user/internal/repo"
 	"project-user/pkg/model"
-	"project-user/pkg/repo"
 	"time"
 
 	"github.com/gin-gonic/gin"

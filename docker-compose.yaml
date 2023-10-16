@@ -40,9 +40,9 @@ services:
     ports:
       - ${ETCD_PORT}:2379
       - 2380:2380
-  Project-user:
-    container_name: project-user
-    image: project-user:latest
-    ports:
-      - 8080:8080
-      - 8881:8881
+#  Project-user:
+#    container_name: project-user
+#    image: project-user:latest
+#    ports:
+#      - 8080:8080
+#      - 8881:8881

@@ -43,7 +43,7 @@ func InitConfig() *Config {
 	return conf
 }
 
-// Server配置读取
+// InitServerConfig Server配置读取
 func (c *Config) InitServerConfig() {
 	sc := &ServerConf{
 		Name: c.viper.GetString("server.name"),
@@ -52,7 +52,7 @@ func (c *Config) InitServerConfig() {
 	c.Sc = sc
 }
 
-// Zaplog读取配置并初始化
+// InitZapLog Zaplog读取配置并初始化
 func (c *Config) InitZapLog() {
 	//从配置中读取日志配置，初始化日志
 	lg := &logs.LogConfig{
@@ -69,7 +69,7 @@ func (c *Config) InitZapLog() {
 	}
 }
 
-// Etcd 配置读取
+// InitEtcdConfig Etcd 配置读取
 func (c *Config) InitEtcdConfig() {
 	ec := &EtcdConf{}
 	var addrs []string

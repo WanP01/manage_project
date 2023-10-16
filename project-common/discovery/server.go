@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/resolver"
 )
 
-// grpc 服务器信息
+// Server grpc 服务器信息
 type Server struct {
 	Name    string `json:"name"`    //服务名称
 	Addr    string `json:"addr"`    //服务地址
@@ -17,7 +17,7 @@ type Server struct {
 	Weight  int64  `json:"weight"`  //服务权重
 }
 
-// 构建etcd 存储前缀
+// BuildPrefix 构建etcd 存储前缀
 // "/name/" or "/name/version/"
 func BuildPrefix(info Server) string {
 	if info.Version == "" {
@@ -26,7 +26,7 @@ func BuildPrefix(info Server) string {
 	return fmt.Sprintf("/%s/%s/", info.Name, info.Version)
 }
 
-// "/name/version/addr"
+// BuildRegPath "/name/version/addr"
 func BuildRegPath(info Server) string {
 	return fmt.Sprintf("%s%s", BuildPrefix(info), info.Addr)
 }
@@ -74,7 +74,7 @@ func Remove(s []resolver.Address, addr resolver.Address) ([]resolver.Address, bo
 	return nil, false
 }
 
-// 构建grpc服务URL （类似Host：port 的域名）
+// BuildResolverUrl 构建grpc服务URL （类似Host：port 的域名）
 func BuildResolverUrl(app string) string {
 	return schema + ":///" + app
 }
