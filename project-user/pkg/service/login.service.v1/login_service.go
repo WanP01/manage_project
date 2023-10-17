@@ -19,6 +19,7 @@ import (
 	"project-user/internal/repo"
 	"project-user/pkg/model"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -167,6 +168,7 @@ func (ls *LoginService) Login(ctx context.Context, lm *login.LoginMessage) (*log
 		zap.L().Error("memMsg copy error", zap.Error(err))
 		return nil, errs.GrpcError(model.SyntaxError)
 	}
+	memMsg.Code, _ = encrypts.EncryptInt64(memMsg.Id, model.AESKey)
 	//查询对应成员的个人组织（organization）
 	orgs, err := ls.organizationRepo.FindOrganizationByMemID(c, memMsg.Id)
 	if err != nil {
@@ -178,6 +180,9 @@ func (ls *LoginService) Login(ctx context.Context, lm *login.LoginMessage) (*log
 	if err != nil {
 		zap.L().Error("memMsg copy error", zap.Error(err))
 		return nil, errs.GrpcError(model.SyntaxError)
+	}
+	for _, v := range orgMsg {
+		v.Code, _ = encrypts.EncryptInt64(v.Id, model.AESKey)
 	}
 	//3. 用jwt生成token
 	memIdStr := strconv.FormatInt(memMsg.Id, 10)
@@ -203,4 +208,44 @@ func (ls *LoginService) Login(ctx context.Context, lm *login.LoginMessage) (*log
 		TokenList:        tokenList,
 	}, nil
 
+}
+
+func (ls *LoginService) TokenVerify(ctx context.Context, msg *login.LoginMessage) (*login.LoginResponse, error) {
+	c := context.Background()
+	// 获取token并处理格式
+	token := msg.Token
+	if strings.Contains(token, "bearer") {
+		token = strings.ReplaceAll(token, "bearer ", "")
+	}
+	// 解析token，验证通过则取出存在内部的 memID
+	memID, err := jwts.ParseToken(token, config.AppConf.Jc.AccessSecret)
+	if err != nil {
+		zap.L().Error("Login  TokenVerify error", zap.Error(err))
+		return nil, errs.GrpcError(model.NoLogin)
+	}
+	// 通过memID在数据库搜索 对应用户信息
+	// 优化点 登录之后 应该把用户信息缓存起来
+	memId, err := strconv.ParseInt(memID, 10, 64)
+	if err != nil {
+		zap.L().Error("TokenVerify ParseInt err", zap.Error(err))
+		return nil, errs.GrpcError(model.NoLogin)
+	}
+	meminfo, err := ls.memberRepo.FindMemberByID(c, memId)
+	if err != nil {
+		zap.L().Error("Login db FindMemByID error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	if meminfo == nil {
+		zap.L().Error("TokenVerify member is nil")
+		return nil, errs.GrpcError(model.NoLogin)
+	}
+	// 返回mem信息即可（login 有organization 和 member和 tokenlist）
+	memMsg := &login.MemberMessage{}
+	err = copier.Copy(memMsg, meminfo)
+	if err != nil {
+		zap.L().Error("memMsg copy error", zap.Error(err))
+		return nil, errs.GrpcError(model.SyntaxError)
+	}
+	memMsg.Code, _ = encrypts.EncryptInt64(memMsg.Id, model.AESKey)
+	return &login.LoginResponse{Member: memMsg}, nil
 }

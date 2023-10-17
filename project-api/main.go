@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "project-api/api" //初始化"user/api/user"路径下的router file
+	_ "project-api/api" //初始化"user/api/user & /project"路径下的router file
 	"project-api/config"
 	"project-api/router"
 	srv "project-common"

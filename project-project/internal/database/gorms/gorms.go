@@ -6,7 +6,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"project-user/config"
+	"project-project/config"
 )
 
 // 全局DB连接

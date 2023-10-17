@@ -1,11 +1,11 @@
 server:
-  name: "project-user"
-  addr: "127.0.0.1:8080"
+  name: "project-project"
+  addr: "127.0.0.1:8081"
 
 zap:
-  debugFileName: "D:\\go\\project\\logs\\project_user\\debug\\project-debug.log"
-  infoFileName: "D:\\go\\project\\logs\\project_user\\info\\project-info.log"
-  warnFileName: "D:\\go\\project\\logs\\project_user\\error\\project-error.log"
+  debugFileName: "D:\\go\\project\\logs\\project_project\\debug\\project-debug.log"
+  infoFileName: "D:\\go\\project\\logs\\project_project\\info\\project-info.log"
+  warnFileName: "D:\\go\\project\\logs\\project_project\\error\\project-error.log"
   maxSize: 500,
   maxAge: 28,
   MaxBackups: 3
@@ -17,8 +17,8 @@ redis:
   db: 0
 
 grpc:
-  addr: "127.0.0.1:8881"
-  name: "user"
+  addr: "127.0.0.1:8882"
+  name: "project"
   verison: "1.0.0"
   weight: 2
 

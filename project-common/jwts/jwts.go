@@ -1,6 +1,8 @@
 package jwts
 
 import (
+	"errors"
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"time"
 )
@@ -34,4 +36,31 @@ func CreateToken(val string, exp time.Duration, secret string, refreshExp time.D
 		RefreshToken: rToken,
 	}, err
 
+}
+
+func ParseToken(tokenString string, secret string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+
+		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+		return []byte(secret), nil
+	})
+	if err != nil {
+		return "", nil
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		val := claims["token"].(string)
+		exp := int64(claims["exp"].(float64))
+		if exp <= time.Now().Unix() {
+			return "", errors.New("token过期了")
+		}
+		return val, nil
+		//fmt.Printf("%v \n", claims)
+	} else {
+		return "", err
+		//fmt.Println(err)
+	}
 }
