@@ -48,10 +48,13 @@ type LoginRsp struct {
 }
 type Member struct {
 	//Id     int64  `json:"id"`// 避免暴露内部序号，需要加密，加密后为code字段
-	Name   string `json:"name"`
-	Mobile string `json:"mobile"`
-	Status int    `json:"status"`
-	Code   string `json:"code"`
+	Name             string `json:"name"`
+	Mobile           string `json:"mobile"`
+	Status           int    `json:"status"`
+	Code             string `json:"code"`
+	CreateTime       string `json:"create_time"`
+	LastLoginTime    string `json:"last_login_time"`
+	OrganizationCode string `json:"organization_code"`
 }
 
 type TokenList struct {
@@ -66,8 +69,8 @@ type OrganizationList struct {
 	Name        string `json:"name"`
 	Avatar      string `json:"avatar"`
 	Description string `json:"description"`
-	MemberId    int64  `json:"memberId"`
-	CreateTime  int64  `json:"createTime"`
+	OwnerCode   string `json:"owner_code"`
+	CreateTime  string `json:"create_time"`
 	Personal    int32  `json:"personal"`
 	Address     string `json:"address"`
 	Province    int32  `json:"province"`

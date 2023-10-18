@@ -1,10 +1,9 @@
 package middleware
 
 import (
-	"context"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"project-api/api/user"
+	"project-api/api/grpc"
 	common "project-common"
 	"project-common/errs"
 	"project-grpc/user/login"
@@ -18,8 +17,8 @@ func TokenVerify() func(*gin.Context) {
 		//2.调用user服务进行token认证
 		//c, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 		//defer cancelFunc()
-		c := context.Background()
-		response, err := user.UserGrpcClient.TokenVerify(c, &login.LoginMessage{Token: token})
+		//c := context.Background()
+		response, err := grpc.UserGrpcClient.TokenVerify(ctx, &login.LoginMessage{Token: token})
 		if err != nil {
 			code, msg := errs.ParseGrpcError(err)
 			ctx.JSON(http.StatusOK, result.Fail(code, msg))
@@ -28,6 +27,8 @@ func TokenVerify() func(*gin.Context) {
 		}
 		//3.处理结果，认证通过 将信息放入gin的上下文 失败返回未登录
 		ctx.Set("memberId", response.Member.Id)
+		ctx.Set("memberName", response.Member.Name)
+		ctx.Set("organizationCode", response.Member.OrganizationCode)
 		ctx.Next()
 	}
 }

@@ -1,4 +1,4 @@
-package project
+package grpc
 
 import (
 	"google.golang.org/grpc"

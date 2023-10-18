@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/jinzhu/copier"
 	"net/http"
+	"project-api/api/grpc"
 	"project-api/pkg/model"
 	"project-api/pkg/model/user"
 	common "project-common"
@@ -32,7 +33,7 @@ func (hu *HandlerUser) getCaptcha(ctx *gin.Context) {
 	//调用User模块的Grpc（验证码服务）
 	c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	res, err := UserGrpcClient.GetCaptcha(c, &login.CaptchaMessage{Mobile: mobile})
+	res, err := grpc.UserGrpcClient.GetCaptcha(c, &login.CaptchaMessage{Mobile: mobile})
 	if err != nil {
 		code, msg := errs.ParseGrpcError(err)
 		ctx.JSON(http.StatusOK, result.Fail(code, msg))
@@ -57,9 +58,9 @@ func (hu *HandlerUser) register(ctx *gin.Context) {
 		return
 	}
 	// 3.调用User grpc服务 获取响应
-	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	//defer cancel()
-	c := context.Background() // 调试用
+	c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	//c := context.Background() // 调试用
 	// copier 库实现反射复制
 	msg := &login.RegisterMessage{}
 	err = copier.Copy(msg, req)
@@ -75,7 +76,7 @@ func (hu *HandlerUser) register(ctx *gin.Context) {
 	//	Password: req.Password,
 	//	Captcha:  req.Captcha,
 	//}
-	_, err = UserGrpcClient.Register(c, msg)
+	_, err = grpc.UserGrpcClient.Register(c, msg)
 	if err != nil {
 		code, msg := errs.ParseGrpcError(err)
 		ctx.JSON(http.StatusOK, result.Fail(code, msg))
@@ -105,7 +106,7 @@ func (hu *HandlerUser) login(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, result.Fail(http.StatusBadRequest, err.Error()))
 		return
 	}
-	loginResp, err := UserGrpcClient.Login(c, msg)
+	loginResp, err := grpc.UserGrpcClient.Login(c, msg)
 	if err != nil {
 		code, msg := errs.ParseGrpcError(err)
 		ctx.JSON(http.StatusOK, result.Fail(code, msg))
@@ -119,4 +120,34 @@ func (hu *HandlerUser) login(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, result.Success(rsp))
+}
+
+func (hu *HandlerUser) myOrgList(ctx *gin.Context) {
+	result := common.Result{}
+	// 1. 获取参数memId
+	memId := ctx.GetInt64("memberId")
+	//2. 调用Grpc服务
+	c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	//c := context.Background() // 调试用
+	msg := &login.UserMessage{MemId: memId}
+	orgrsp, err := grpc.UserGrpcClient.MyOrgList(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+		return
+	}
+	// 回复响应的用户数据
+	var OrgList []*user.OrganizationList
+	err = copier.Copy(&OrgList, orgrsp.OrganizationList) // 在copy过后需要确认空值和nil
+	if err != nil {
+		ctx.JSON(http.StatusOK, result.Fail(http.StatusBadRequest, err.Error()))
+		return
+	}
+	if OrgList == nil { // OrganizationList 需要赋予默认值，不能为nil
+		ctx.JSON(http.StatusOK, result.Success([]*user.OrganizationList{}))
+		return
+	}
+	ctx.JSON(http.StatusOK, result.Success(OrgList))
+
 }

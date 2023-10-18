@@ -3,7 +3,7 @@ go 1.20
 use (
 	./project-api
 	./project-common
-	./project-user
 	./project-grpc
 	./project-project
+	./project-user
 )

@@ -2,6 +2,7 @@ package project
 
 import (
 	"log"
+	"project-api/api/grpc"
 	"project-api/api/middleware"
 	"project-api/router"
 
@@ -20,10 +21,14 @@ type RouterProject struct {
 
 func (pu *RouterProject) Route(r *gin.Engine) {
 	// 初始化Project的Grpc Client=》 ProjectGrpcClinet
-	InitProjectGrpcClient()
+	grpc.InitProjectGrpcClient()
 	//注册验证码函数
-	h := NewHandlerProject()
-	group := r.Group("project/index")
+	hp := NewHandlerProject()
+	group := r.Group("/project")
 	group.Use(middleware.TokenVerify())
-	group.POST("", h.index)
+	group.POST("/index", hp.index)
+	group.POST("/project/selfList", hp.myProjectList)
+	group.POST("/project", hp.myProjectList)
+	group.POST("/project_template", hp.projectTemplate)
+	group.POST("/project/save", hp.projectSave)
 }

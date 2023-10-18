@@ -18,6 +18,14 @@ func (*Organization) TableName() string {
 	return "ms_organization"
 }
 
+func ToMap(orgs []*Organization) map[int64]*Organization {
+	m := make(map[int64]*Organization)
+	for _, v := range orgs {
+		m[v.Id] = v
+	}
+	return m
+}
+
 /*CREATE TABLE `ms_organization`  (
 `id` bigint(0) NOT NULL AUTO_INCREMENT,
 `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '名称',
