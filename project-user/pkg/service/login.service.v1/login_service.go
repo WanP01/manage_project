@@ -2,6 +2,7 @@ package login_service_v1
 
 import (
 	context "context"
+	"encoding/json"
 	"github.com/go-redis/redis/v8"
 	"github.com/jinzhu/copier"
 	"log"
@@ -204,6 +205,14 @@ func (ls *LoginService) Login(ctx context.Context, lm *login.LoginMessage) (*log
 		AccessTokenExp: token.AccessExp,
 		TokenType:      "bearer",
 	}
+	//保存缓存
+	go func() {
+		memberJson, _ := json.Marshal(meminfo) //不建议直接用grpc 的 memberMessage struct ， json 会忽视 omitempty
+		ls.cache.Put(ctx, model.MemberRedisKey+"::"+memIdStr, string(memberJson), exp)
+		orgJson, _ := json.Marshal(orgs) //不建议直接用grpc 的 memberMessage struct ， json 会忽视 omitempty
+		ls.cache.Put(ctx, model.MemberOrganizationRedisKey+"::"+memIdStr, string(orgJson), exp)
+	}()
+
 	// 回复grpc响应
 	return &login.LoginResponse{
 		Member:           memMsg,
@@ -221,42 +230,71 @@ func (ls *LoginService) TokenVerify(ctx context.Context, msg *login.LoginMessage
 		token = strings.ReplaceAll(token, "bearer ", "")
 	}
 	// 解析token，验证通过则取出存在内部的 memID
-	memID, err := jwts.ParseToken(token, config.AppConf.Jc.AccessSecret)
+	memIDstr, err := jwts.ParseToken(token, config.AppConf.Jc.AccessSecret)
 	if err != nil {
 		zap.L().Error("Login  TokenVerify error", zap.Error(err))
 		return nil, errs.GrpcError(model.NoLogin)
 	}
-	// 通过memID在数据库搜索 对应用户信息
-	// 优化点 登录之后 应该把用户信息缓存起来
-	memId, err := strconv.ParseInt(memID, 10, 64)
+	//memId, err := strconv.ParseInt(memIDstr, 10, 64)
+	//if err != nil {
+	//	zap.L().Error("TokenVerify ParseInt err", zap.Error(err))
+	//	return nil, errs.GrpcError(model.NoLogin)
+	//}
+
+	// 通过memID在数据库搜索 对应用户信息（优化前）
+	// 优化点 登录之后 应该把用户信息缓存起来（优化后）
+	memberJson, err := ls.cache.Get(ctx, model.MemberRedisKey+"::"+memIDstr)
 	if err != nil {
-		zap.L().Error("TokenVerify ParseInt err", zap.Error(err))
+		zap.L().Error("TokenVerify redis Get Member error", zap.Error(err))
 		return nil, errs.GrpcError(model.NoLogin)
 	}
-	meminfo, err := ls.memberRepo.FindMemberByID(ctx, memId)
-	if err != nil {
-		zap.L().Error("Login db FindMemByID error", zap.Error(err))
-		return nil, errs.GrpcError(model.DBError)
-	}
-	if meminfo == nil {
-		zap.L().Error("TokenVerify member is nil")
+	if memberJson == "" {
+		zap.L().Error("Login TokenVerify cache already expire")
 		return nil, errs.GrpcError(model.NoLogin)
 	}
-	// 返回mem信息即可（login 有organization 和 member和 tokenlist）
+	meminfo := &member.Member{}
+	json.Unmarshal([]byte(memberJson), meminfo)
+
 	memMsg := &login.MemberMessage{}
-	err = copier.Copy(memMsg, meminfo)
-	if err != nil {
-		zap.L().Error("memMsg copy error", zap.Error(err))
-		return nil, errs.GrpcError(model.SyntaxError)
-	}
+	copier.Copy(&memMsg, meminfo)
+
+	//meminfo, err := ls.memberRepo.FindMemberByID(ctx, memId)
+	//if err != nil {
+	//	zap.L().Error("Login db FindMemByID error", zap.Error(err))
+	//	return nil, errs.GrpcError(model.DBError)
+	//}
+	//if meminfo == nil {
+	//	zap.L().Error("TokenVerify member is nil")
+	//	return nil, errs.GrpcError(model.NoLogin)
+	//}
+	//// 返回mem信息即可（login 有organization 和 member和 tokenlist）
+	//memMsg := &login.MemberMessage{}
+	//err = copier.Copy(memMsg, meminfo)
+	//if err != nil {
+	//	zap.L().Error("memMsg copy error", zap.Error(err))
+	//	return nil, errs.GrpcError(model.SyntaxError)
+	//}
 	memMsg.Code, _ = encrypts.EncryptInt64(memMsg.Id, model.AESKey)
 	memMsg.LastLoginTime = tms.FormatByMill(meminfo.LastLoginTime)
 	memMsg.CreateTime = tms.FormatByMill(meminfo.CreateTime)
-	orgs, err := ls.organizationRepo.FindOrganizationByMemID(ctx, memMsg.Id)
+
+	orgsJson, err := ls.cache.Get(ctx, model.MemberOrganizationRedisKey+"::"+memIDstr)
 	if err != nil {
-		zap.L().Error("TokenVerify db FindMember error", zap.Error(err))
-		return nil, errs.GrpcError(model.DBError)
+		zap.L().Error("TokenVerify redis Get MemberOrganization error", zap.Error(err))
+		return nil, errs.GrpcError(model.NoLogin)
 	}
+	if orgsJson == "" {
+		zap.L().Error("Login TokenVerify cache already expire")
+		return nil, errs.GrpcError(model.NoLogin)
+	}
+	var orgs []*organization.Organization
+	json.Unmarshal([]byte(orgsJson), &orgs)
+
+	//orgs, err := ls.organizationRepo.FindOrganizationByMemID(ctx, memMsg.Id)
+	//if err != nil {
+	//	zap.L().Error("TokenVerify db FindMember error", zap.Error(err))
+	//	return nil, errs.GrpcError(model.DBError)
+	//}
 	if len(orgs) > 0 {
 		memMsg.OrganizationCode, _ = encrypts.EncryptInt64(orgs[0].Id, model.AESKey)
 	}
@@ -286,4 +324,32 @@ func (ls *LoginService) MyOrgList(ctx context.Context, msg *login.UserMessage) (
 		v.CreateTime = tms.FormatByMill(organization.ToMap(orgs)[v.Id].CreateTime)
 	}
 	return &login.OrgListResponse{OrganizationList: orgMsg}, nil
+}
+
+func (ls *LoginService) FindMemberById(ctx context.Context, msg *login.UserMessage) (*login.MemberMessage, error) {
+	memId := msg.MemId
+	meminfo, err := ls.memberRepo.FindMemberByID(ctx, memId)
+	if err != nil {
+		zap.L().Error("Login FindMemberById FindMemByID error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	// 返回mem信息即可（login 有organization 和 member和 tokenlist）
+	memMsg := &login.MemberMessage{}
+	err = copier.Copy(memMsg, meminfo)
+	if err != nil {
+		zap.L().Error("memMsg copy error", zap.Error(err))
+		return nil, errs.GrpcError(model.SyntaxError)
+	}
+	memMsg.Code, _ = encrypts.EncryptInt64(memMsg.Id, model.AESKey)
+	memMsg.LastLoginTime = tms.FormatByMill(meminfo.LastLoginTime)
+	memMsg.CreateTime = tms.FormatByMill(meminfo.CreateTime)
+	orgs, err := ls.organizationRepo.FindOrganizationByMemID(ctx, memMsg.Id)
+	if err != nil {
+		zap.L().Error("TokenVerify db FindMember error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	if len(orgs) > 0 {
+		memMsg.OrganizationCode, _ = encrypts.EncryptInt64(orgs[0].Id, model.AESKey)
+	}
+	return memMsg, nil
 }

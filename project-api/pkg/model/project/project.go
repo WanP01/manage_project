@@ -1,5 +1,6 @@
 package project
 
+// Project 项目detail
 type Project struct {
 	Id                 int64   `json:"id"`
 	Cover              string  `json:"cover"`
@@ -48,6 +49,14 @@ type ProjectAndMember struct {
 	Collected   int    `json:"collected"`
 }
 
+type ProjectDetail struct {
+	Project
+	OwnerName   string `json:"owner_name"`
+	Collected   int    `json:"collected"`
+	OwnerAvatar string `json:"owner_avatar"`
+}
+
+// ProjectTemplate 项目模板
 type ProjectTemplate struct {
 	Id               int                   `json:"id"`
 	Name             string                `json:"name"`
@@ -66,6 +75,7 @@ type TaskStagesOnlyName struct {
 	Name string `json:"name"`
 }
 
+// SaveProjectRequest 保存项目
 type SaveProjectRequest struct {
 	Name         string `json:"name" form:"name"`
 	TemplateCode string `json:"templateCode" form:"templateCode"`
@@ -82,4 +92,19 @@ type SaveProject struct {
 	CreateTime       string `json:"create_time"`
 	TaskBoardTheme   string `json:"task_board_theme"`
 	OrganizationCode string `json:"organization_code"`
+}
+
+type ProjectReq struct {
+	ProjectCode        string  `json:"projectCode" form:"projectCode"`
+	Cover              string  `json:"cover" form:"cover"`
+	Name               string  `json:"name" form:"name"`
+	Description        string  `json:"description" form:"description"`
+	Schedule           float64 `json:"schedule" form:"schedule"`
+	Private            int     `json:"private" form:"private"`
+	Prefix             string  `json:"prefix" form:"prefix"`
+	OpenPrefix         int     `json:"open_prefix" form:"open_prefix"`
+	OpenBeginTime      int     `json:"open_begin_time" form:"open_begin_time"`
+	OpenTaskPrivate    int     `json:"open_task_private" form:"open_task_private"`
+	TaskBoardTheme     string  `json:"task_board_theme" form:"task_board_theme"`
+	AutoUpdateSchedule int     `json:"auto_update_schedule" form:"auto_update_schedule"`
 }

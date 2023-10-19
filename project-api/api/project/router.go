@@ -31,4 +31,9 @@ func (pu *RouterProject) Route(r *gin.Engine) {
 	group.POST("/project", hp.myProjectList)
 	group.POST("/project_template", hp.projectTemplate)
 	group.POST("/project/save", hp.projectSave)
+	group.POST("/project/read", hp.projectRead)
+	group.POST("/project/recycle", hp.projectRecycle)
+	group.POST("/project/recovery", hp.projectRecovery)
+	group.POST("/project_collect/collect", hp.projectCollect)
+	group.POST("/project/edit", hp.projectEdit)
 }

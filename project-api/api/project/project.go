@@ -52,9 +52,9 @@ func (hp *HandlerProject) index(ctx *gin.Context) {
 func (hp *HandlerProject) myProjectList(ctx *gin.Context) {
 	result := &common.Result{}
 	//1. 获取参数
-	c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	//c := context.Background() // 调试用
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background() // 调试用
 
 	memId := ctx.GetInt64("memberId")
 	memberName := ctx.GetString("memberName")
@@ -169,4 +169,106 @@ func (hp *HandlerProject) projectSave(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, result.Success(sp))
+}
+
+func (hp *HandlerProject) projectRead(ctx *gin.Context) {
+	result := &common.Result{}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	projectCode := ctx.PostForm("projectCode")
+	memId := ctx.GetInt64("memberId")
+	msg := &project.ProjectRpcMessage{
+		MemberId:    memId,
+		ProjectCode: projectCode,
+	}
+	detail, err := grpc.ProjectGrpcClient.FindProjectDetail(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	var pd pro.ProjectDetail
+	err = copier.Copy(&pd, detail)
+	if err != nil {
+		ctx.JSON(http.StatusOK, result.Fail(http.StatusBadRequest, err.Error()))
+		return
+	}
+	ctx.JSON(http.StatusOK, result.Success(pd))
+}
+
+func (hp *HandlerProject) projectRecycle(ctx *gin.Context) {
+	result := &common.Result{}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	projectCode := ctx.PostForm("projectCode")
+	msg := &project.ProjectRpcMessage{
+		ProjectCode: projectCode,
+		Deleted:     true,
+	}
+	_, err := grpc.ProjectGrpcClient.UpdateDeletedProject(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	ctx.JSON(http.StatusOK, result.Success([]int{}))
+}
+
+func (p *HandlerProject) projectRecovery(ctx *gin.Context) {
+	result := &common.Result{}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	projectCode := ctx.PostForm("projectCode")
+	msg := &project.ProjectRpcMessage{
+		ProjectCode: projectCode,
+		Deleted:     false,
+	}
+	_, err := grpc.ProjectGrpcClient.UpdateDeletedProject(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	ctx.JSON(http.StatusOK, result.Success([]int{}))
+}
+
+func (p *HandlerProject) projectCollect(ctx *gin.Context) {
+	result := &common.Result{}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	projectCode := ctx.PostForm("projectCode")
+	typ := ctx.PostForm("type")
+	memberId := ctx.GetInt64("memberId")
+	msg := &project.ProjectRpcMessage{
+		MemberId:    memberId,
+		ProjectCode: projectCode,
+		CollectType: typ,
+	}
+	_, err := grpc.ProjectGrpcClient.UpdateCollectProject(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	ctx.JSON(http.StatusOK, result.Success([]int{}))
+}
+
+func (p *HandlerProject) projectEdit(ctx *gin.Context) {
+	result := &common.Result{}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	var req *pro.ProjectReq
+	_ = ctx.ShouldBind(&req)
+	memberId := ctx.GetInt64("memberId")
+
+	msg := &project.UpdateProjectMessage{}
+	copier.Copy(msg, req)
+	msg.MemberId = memberId
+	_, err := grpc.ProjectGrpcClient.UpdateProject(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	ctx.JSON(http.StatusOK, result.Success([]int{}))
 }

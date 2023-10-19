@@ -1,3 +1,7 @@
 package model
 
-var RegisterRedisKey string = "REGISTER_"
+const (
+	RegisterRedisKey           string = "REGISTER_"
+	MemberRedisKey                    = "MEMBER"
+	MemberOrganizationRedisKey        = "MEMBER_ORGANIZATION"
+)

@@ -1,8 +1,6 @@
 package model
 
-import (
-	"project-common/errs"
-)
+import "project-common/errs"
 
 var (
 	RedisError         = errs.NewError(999, "redis错误")

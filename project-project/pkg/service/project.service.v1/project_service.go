@@ -1,13 +1,14 @@
 package project_service_v1
 
 import (
-	context "context"
+	"context"
 	"github.com/jinzhu/copier"
 	"go.uber.org/zap"
 	"project-common/encrypts"
 	"project-common/errs"
 	"project-common/tms"
 	"project-grpc/project"
+	"project-grpc/user/login"
 	"project-project/internal/dao"
 	"project-project/internal/data/menu"
 	"project-project/internal/data/pro"
@@ -15,6 +16,7 @@ import (
 	"project-project/internal/database"
 	"project-project/internal/database/tran"
 	"project-project/internal/repo"
+	"project-project/internal/rpc"
 	"project-project/pkg/model"
 	"strconv"
 	"time"
@@ -69,15 +71,29 @@ func (ps *ProjectService) FindProjectByMemId(ctx context.Context, msg *project.P
 	var err error
 	switch selectBy := msg.SelectBy; selectBy {
 	case "", "my":
-		pms, total, err = ps.projectRepo.FindProjectByMemID(ctx, "", memId, page, pageSzie)
+		pms, total, err = ps.projectRepo.FindProjectByMemID(ctx, "and deleted=0", memId, page, pageSzie)
 	case "archive":
-		pms, total, err = ps.projectRepo.FindProjectByMemID(ctx, "and archive=1", memId, page, pageSzie)
+		pms, total, err = ps.projectRepo.FindProjectByMemID(ctx, "and archive=1 and deleted=0", memId, page, pageSzie)
 	case "deleted":
 		pms, total, err = ps.projectRepo.FindProjectByMemID(ctx, "and deleted=1", memId, page, pageSzie)
 	case "collect":
-		pms, total, err = ps.projectRepo.FindCollectProjectByMemID(ctx, memId, page, pageSzie)
+		pms, total, err = ps.projectRepo.FindCollectProjectByMemID(ctx, "and deleted=0", memId, page, pageSzie)
 	}
-
+	//刷新收藏状态（可能仅部分行有）
+	collectPms, _, err := ps.projectRepo.FindCollectProjectByMemID(ctx, "and deleted=0", memId, page, pageSzie)
+	if err != nil {
+		zap.L().Error("project FindProjectByMemId::FindCollectProjectByMemId error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	cMap := make(map[int64]*pro.ProjectAndMember)
+	for _, c := range collectPms {
+		cMap[c.Id] = c
+	}
+	for _, v := range pms {
+		if cMap[v.ProjectCode] != nil {
+			v.Collected = model.Collected
+		}
+	}
 	//if pms == nil { // 返回默认值（空的Project）
 	//	return &project.MyProjectResponse{Pm: []*project.ProjectMessage{&project.ProjectMessage{Name: "None", Description: "尚未创建"}}, Total: total}, nil
 	//}
@@ -91,7 +107,7 @@ func (ps *ProjectService) FindProjectByMemId(ctx context.Context, msg *project.P
 	var pmm []*project.ProjectMessage
 	copier.Copy(&pmm, pms) // 空Pms对应pmm仍为nil，在api处再次赋值 空 []
 	for _, v := range pmm {
-		v.Code, _ = encrypts.EncryptInt64(v.Id, model.AESKey)
+		v.Code, _ = encrypts.EncryptInt64(v.ProjectCode, model.AESKey)
 		pam := pro.ToMap(pms)[v.Id]
 		// 格式转换 int（数据库）=》string（前端） & 赋值
 		v.AccessControlType = pam.GetAccessControlType()
@@ -197,4 +213,79 @@ func (ps *ProjectService) SaveProject(ctx context.Context, msg *project.ProjectR
 		TaskBoardTheme:   pr.TaskBoardTheme,
 	}
 	return rsp, nil
+}
+
+func (ps *ProjectService) FindProjectDetail(ctx context.Context, msg *project.ProjectRpcMessage) (*project.ProjectDetailMessage, error) {
+	projectCodeStr, _ := encrypts.Decrypt(msg.ProjectCode, model.AESKey)
+	projectId, _ := strconv.ParseInt(projectCodeStr, 10, 64)
+	memberId := msg.MemberId
+	// 根据用户Id 和 project Id 查项目表
+	projectAndMember, err := ps.projectRepo.FindProjectByPIDANDMemID(ctx, memberId, projectId)
+	if err != nil {
+		zap.L().Error("project FindProjectDetail FindProjectByPIDANDMemID error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	//获得所有者信息（所有者Id ）
+	ownerId := projectAndMember.IsOwner
+	//与User模块互动查找用户信息（ownerName，ownerAvatar）
+	meminfo, err := rpc.UserGrpcClient.FindMemberById(ctx, &login.UserMessage{MemId: ownerId})
+	if err != nil {
+		zap.L().Error("project  FindProjectDetail rpc.UserGrpcClient.FindMemberById", zap.Error(err))
+		return nil, err
+	}
+	//是否被收藏
+	isCollect, err := ps.projectRepo.FindCollectProjectByPIDANDMemID(ctx, memberId, projectId)
+	if err != nil {
+		zap.L().Error("project  FindProjectDetail  FindCollectProjectByPIDANDMemID error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	if isCollect {
+		projectAndMember.Collected = model.Collected
+	}
+	detail := &project.ProjectDetailMessage{}
+	copier.Copy(&detail, projectAndMember)
+	detail.OwnerAvatar = meminfo.Avatar
+	detail.OwnerName = meminfo.Name
+	detail.Code, _ = encrypts.EncryptInt64(projectAndMember.ProjectCode, model.AESKey)
+	detail.AccessControlType = projectAndMember.GetAccessControlType()
+	detail.OrganizationCode, _ = encrypts.EncryptInt64(projectAndMember.OrganizationCode, model.AESKey)
+	detail.Order = int32(projectAndMember.Sort)
+	detail.CreateTime = tms.FormatByMill(projectAndMember.CreateTime)
+	return detail, nil
+}
+
+func (ps *ProjectService) UpdateDeletedProject(ctx context.Context, msg *project.ProjectRpcMessage) (*project.DeletedProjectResponse, error) {
+	projectCodeStr, _ := encrypts.Decrypt(msg.ProjectCode, model.AESKey)
+	projectCode, _ := strconv.ParseInt(projectCodeStr, 10, 64)
+	err := ps.projectRepo.UpdateDeletedProject(ctx, projectCode, msg.Deleted)
+	if err != nil {
+		zap.L().Error("project RecycleProject DeleteProject error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	return &project.DeletedProjectResponse{}, nil
+}
+
+func (ps *ProjectService) UpdateProject(ctx context.Context, msg *project.UpdateProjectMessage) (*project.UpdateProjectResponse, error) {
+	projectCodeStr, _ := encrypts.Decrypt(msg.ProjectCode, model.AESKey)
+	projectCode, _ := strconv.ParseInt(projectCodeStr, 10, 64)
+	proj := &pro.Project{
+		Id:                 projectCode,
+		Name:               msg.Name,
+		Description:        msg.Description,
+		Cover:              msg.Cover,
+		TaskBoardTheme:     msg.TaskBoardTheme,
+		Prefix:             msg.Prefix,
+		Private:            int(msg.Private),
+		OpenPrefix:         int(msg.OpenPrefix),
+		OpenBeginTime:      int(msg.OpenBeginTime),
+		OpenTaskPrivate:    int(msg.OpenTaskPrivate),
+		Schedule:           msg.Schedule,
+		AutoUpdateSchedule: int(msg.AutoUpdateSchedule),
+	}
+	err := ps.projectRepo.UpdateProject(ctx, proj)
+	if err != nil {
+		zap.L().Error("project UpdateProject::UpdateProject error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	return &project.UpdateProjectResponse{}, nil
 }
