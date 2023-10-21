@@ -77,11 +77,15 @@ message TokenMessage{
 
 message UserMessage{
   int64 memId = 1;
+  repeated int64 mIds = 2;
 }
 message OrgListResponse{
   repeated OrganizationMessage organizationList = 1;
 }
 
+message MemberMessageList {
+  repeated MemberMessage list = 1;
+}
 
 service LoginService {
   rpc GetCaptcha(CaptchaMessage) returns (CaptchaResponse) {}
@@ -90,5 +94,5 @@ service LoginService {
   rpc TokenVerify (LoginMessage) returns (LoginResponse) {}
   rpc MyOrgList(UserMessage) returns (OrgListResponse) {}
   rpc FindMemberById(UserMessage) returns (MemberMessage) {}
-
+  rpc FindMemInfoByIds(UserMessage) returns (MemberMessageList) {}
 }

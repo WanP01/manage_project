@@ -56,7 +56,7 @@ func (ls *LoginService) GetCaptcha(ctx context.Context, cm *login.CaptchaMessage
 		//log.Printf("短信平台调用成功,发送验证码%v\n", code)
 		//存储验证码redis当中，过期时间5min
 		//注意点，后续存储的软件可能不一致，比如redis 或者其他nosql软件，所以需要用接口，降低代码耦合
-		err := ls.cache.Put(ctx, model.RegisterRedisKey+mobile, code, 5*time.Minute)
+		err := ls.cache.Put(context.Background(), model.RegisterRedisKey+mobile, code, 5*time.Minute)
 		if err != nil {
 			log.Printf("验证码存入redis错误，cause by %v :", err)
 		} else {
@@ -208,9 +208,9 @@ func (ls *LoginService) Login(ctx context.Context, lm *login.LoginMessage) (*log
 	//保存缓存
 	go func() {
 		memberJson, _ := json.Marshal(meminfo) //不建议直接用grpc 的 memberMessage struct ， json 会忽视 omitempty
-		ls.cache.Put(ctx, model.MemberRedisKey+"::"+memIdStr, string(memberJson), exp)
+		ls.cache.Put(context.Background(), model.MemberRedisKey+"::"+memIdStr, string(memberJson), exp)
 		orgJson, _ := json.Marshal(orgs) //不建议直接用grpc 的 memberMessage struct ， json 会忽视 omitempty
-		ls.cache.Put(ctx, model.MemberOrganizationRedisKey+"::"+memIdStr, string(orgJson), exp)
+		ls.cache.Put(context.Background(), model.MemberOrganizationRedisKey+"::"+memIdStr, string(orgJson), exp)
 	}()
 
 	// 回复grpc响应
@@ -352,4 +352,28 @@ func (ls *LoginService) FindMemberById(ctx context.Context, msg *login.UserMessa
 		memMsg.OrganizationCode, _ = encrypts.EncryptInt64(orgs[0].Id, model.AESKey)
 	}
 	return memMsg, nil
+}
+
+func (ls *LoginService) FindMemInfoByIds(ctx context.Context, msg *login.UserMessage) (*login.MemberMessageList, error) {
+	mIds := msg.MIds
+	memberList, err := ls.memberRepo.FindMemberByIds(context.Background(), mIds)
+	if err != nil {
+		zap.L().Error("FindMemInfoByIds db memberRepo.FindMemberByIds error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	if memberList == nil || len(memberList) <= 0 {
+		return &login.MemberMessageList{List: nil}, nil
+	}
+	mMap := make(map[int64]*member.Member)
+	for _, v := range memberList {
+		mMap[v.Id] = v
+	}
+	var memMsg []*login.MemberMessage
+	copier.Copy(&memMsg, memberList)
+	for _, v := range memMsg {
+		v.Code, _ = encrypts.EncryptInt64(v.Id, model.AESKey)
+		v.LastLoginTime = tms.FormatByMill(mMap[v.Id].LastLoginTime)
+		v.CreateTime = tms.FormatByMill(mMap[v.Id].CreateTime)
+	}
+	return &login.MemberMessageList{List: memMsg}, nil
 }

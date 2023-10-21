@@ -1,9 +1,8 @@
-package pro
+package data
 
 import (
 	"project-common/encrypts"
 	"project-common/tms"
-	"project-project/internal/data/task"
 	"project-project/pkg/model"
 )
 
@@ -39,6 +38,14 @@ func (p *Project) TableName() string {
 	return "ms_project"
 }
 
+func ToProjectMap(list []*Project) map[int64]*Project {
+	m := make(map[int64]*Project, len(list))
+	for _, v := range list {
+		m[v.Id] = v
+	}
+	return m
+}
+
 // ProjectMember 数据库类型
 type ProjectMember struct {
 	Id          int64
@@ -66,6 +73,19 @@ type ProjectAndMember struct {
 }
 
 func (m *ProjectAndMember) GetAccessControlType() string {
+	if m.AccessControlType == 0 {
+		return "open"
+	}
+	if m.AccessControlType == 1 {
+		return "private"
+	}
+	if m.AccessControlType == 2 {
+		return "custom"
+	}
+	return ""
+}
+
+func (m *Project) GetAccessControlType() string {
 	if m.AccessControlType == 0 {
 		return "open"
 	}
@@ -126,12 +146,12 @@ type ProjectTemplateAll struct {
 	Cover            string
 	MemberCode       string
 	IsSystem         int
-	TaskStages       []*task.TaskStagesOnlyName
+	TaskStages       []*TaskStagesOnlyName
 	Code             string
 }
 
 // Convert : 将生成的 TaskStagesOnlyName 以及数据库里的 ProjectTemplate 结构转换为 ProjectTemplateAll
-func (pt *ProjectTemplate) Convert(taskStages []*task.TaskStagesOnlyName) *ProjectTemplateAll {
+func (pt *ProjectTemplate) Convert(taskStages []*TaskStagesOnlyName) *ProjectTemplateAll {
 	organizationCode, _ := encrypts.EncryptInt64(pt.OrganizationCode, model.AESKey)
 	memberCode, _ := encrypts.EncryptInt64(pt.MemberCode, model.AESKey)
 	code, _ := encrypts.EncryptInt64(int64(pt.Id), model.AESKey)

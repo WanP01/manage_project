@@ -9,9 +9,12 @@ import (
 	"project-common/discovery"
 	"project-common/logs"
 	"project-grpc/project"
+	"project-grpc/task"
 	"project-project/config"
+	"project-project/internal/interceptor"
 	"project-project/internal/rpc"
 	ProjectServiceV1 "project-project/pkg/service/project.service.v1"
+	TaskServiceV1 "project-project/pkg/service/task.service.v1"
 )
 
 // Router 定义路由接口
@@ -66,8 +69,10 @@ func RegisterGrpc() *grpc.Server {
 		Addr: config.AppConf.Gc.Addr,
 		RegisterFunc: func(s *grpc.Server) {
 			project.RegisterProjectServiceServer(s, ProjectServiceV1.New())
+			task.RegisterTaskServiceServer(s, TaskServiceV1.New())
 		}}
-	s := grpc.NewServer()
+	cacheInterceptor := interceptor.NewCacheInterceptor()
+	s := grpc.NewServer(cacheInterceptor.CacheInterceptor())
 	c.RegisterFunc(s)
 	lis, err := net.Listen("tcp", c.Addr)
 	if err != nil {

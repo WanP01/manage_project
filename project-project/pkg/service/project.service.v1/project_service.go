@@ -10,9 +10,7 @@ import (
 	"project-grpc/project"
 	"project-grpc/user/login"
 	"project-project/internal/dao"
-	"project-project/internal/data/menu"
-	"project-project/internal/data/pro"
-	"project-project/internal/data/task"
+	"project-project/internal/data"
 	"project-project/internal/database"
 	"project-project/internal/database/tran"
 	"project-project/internal/repo"
@@ -30,6 +28,7 @@ type ProjectService struct {
 	projectRepo            repo.ProjectRepo
 	projectTemplateRepo    repo.ProjectTemplateRepo
 	taskStagesTemplateRepo repo.TaskStagesTemplateRepo
+	taskStagesRepo         repo.TaskStagesRepo
 }
 
 func New() *ProjectService {
@@ -40,6 +39,7 @@ func New() *ProjectService {
 		projectRepo:            dao.NewProjectDao(),
 		projectTemplateRepo:    dao.NewProjectTemplateDao(),
 		taskStagesTemplateRepo: dao.NewTaskStagesTemplateDao(),
+		taskStagesRepo:         dao.NewTaskStagesDao(),
 	}
 }
 
@@ -56,7 +56,7 @@ func (ps *ProjectService) Index(ctx context.Context, msg *project.IndexMessage) 
 	}
 	//2. 构建IndexResponse的MenuMessage递归树
 	var mms []*project.MenuMessage
-	childTrees := menu.CovertChild(pms)
+	childTrees := data.CovertChild(pms)
 	copier.Copy(&mms, &childTrees)
 	// 回复grpc响应
 	return &project.IndexResponse{Menus: mms}, nil
@@ -66,7 +66,7 @@ func (ps *ProjectService) FindProjectByMemId(ctx context.Context, msg *project.P
 	memId := msg.MemberId
 	page := msg.Page
 	pageSzie := msg.PageSize
-	var pms []*pro.ProjectAndMember
+	var pms []*data.ProjectAndMember
 	var total int64
 	var err error
 	switch selectBy := msg.SelectBy; selectBy {
@@ -85,7 +85,7 @@ func (ps *ProjectService) FindProjectByMemId(ctx context.Context, msg *project.P
 		zap.L().Error("project FindProjectByMemId::FindCollectProjectByMemId error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)
 	}
-	cMap := make(map[int64]*pro.ProjectAndMember)
+	cMap := make(map[int64]*data.ProjectAndMember)
 	for _, c := range collectPms {
 		cMap[c.Id] = c
 	}
@@ -108,7 +108,7 @@ func (ps *ProjectService) FindProjectByMemId(ctx context.Context, msg *project.P
 	copier.Copy(&pmm, pms) // 空Pms对应pmm仍为nil，在api处再次赋值 空 []
 	for _, v := range pmm {
 		v.Code, _ = encrypts.EncryptInt64(v.ProjectCode, model.AESKey)
-		pam := pro.ToMap(pms)[v.Id]
+		pam := data.ToMap(pms)[v.Id]
 		// 格式转换 int（数据库）=》string（前端） & 赋值
 		v.AccessControlType = pam.GetAccessControlType()
 		v.OrganizationCode, _ = encrypts.EncryptInt64(pam.OrganizationCode, model.AESKey)
@@ -126,7 +126,7 @@ func (ps *ProjectService) FindProjectTemplate(ctx context.Context, msg *project.
 	organizationCode, _ := strconv.ParseInt(organizationCodeStr, 10, 64)
 	page := msg.Page
 	size := msg.PageSize
-	var pts []pro.ProjectTemplate
+	var pts []data.ProjectTemplate
 	var total int64
 	var err error
 	// 1. 根据 view type 去查询项目模板列表 template list
@@ -143,16 +143,16 @@ func (ps *ProjectService) FindProjectTemplate(ctx context.Context, msg *project.
 		return nil, errs.GrpcError(model.DBError)
 	}
 	// 2. 模型转换，拿到模板id 取任务步骤模板表去查询
-	ids := pro.ToProjectTemplateIds(pts)
+	ids := data.ToProjectTemplateIds(pts)
 	tst, err := ps.taskStagesTemplateRepo.FindInProTemIds(ctx, ids)
 	if err != nil {
 		zap.L().Error("project FindProjectTemplate FindInProTemIds error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)
 	}
 	// 3. 组装数据 database 模型转换为 grpc 数据结构（一般与最终传输的数据结构一致）
-	var ptas []*pro.ProjectTemplateAll
+	var ptas []*data.ProjectTemplateAll
 	for _, v := range pts {
-		ptas = append(ptas, v.Convert(task.CovertProjectMap(tst)[v.Id]))
+		ptas = append(ptas, v.Convert(data.CovertProjectMap(tst)[v.Id]))
 	}
 	var pmMsgs []*project.ProjectTemplateMessage
 	copier.Copy(&pmMsgs, ptas)
@@ -165,7 +165,13 @@ func (ps *ProjectService) SaveProject(ctx context.Context, msg *project.ProjectR
 	organizationCode, _ := strconv.ParseInt(organizationCodeStr, 10, 64)
 	templateCodeStr, _ := encrypts.Decrypt(msg.TemplateCode, model.AESKey)
 	templateCode, _ := strconv.ParseInt(templateCodeStr, 10, 64)
-	pr := &pro.Project{
+	//获取模板信息（通过模板Id 查找 模板对应的 task，并保存project与task的关系=》ms_task_stages）
+	stageTemplateList, err := ps.taskStagesTemplateRepo.FindByProjectTemplateId(ctx, int(templateCode))
+	if err != nil {
+		zap.L().Error("project SaveProject taskStagesTemplateRepo.FindByProjectTemplateId error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	pr := &data.Project{
 		Name:              msg.Name,
 		Description:       msg.Description,
 		TemplateCode:      templateCode,
@@ -177,7 +183,7 @@ func (ps *ProjectService) SaveProject(ctx context.Context, msg *project.ProjectR
 		AccessControlType: model.Open,
 		TaskBoardTheme:    model.Simple,
 	}
-	err := ps.transaction.Action(func(conn database.DbConn) error {
+	err = ps.transaction.Action(func(conn database.DbConn) error {
 		err := ps.projectRepo.SaveProject(conn, ctx, pr)
 		if err != nil {
 			zap.L().Error("project SaveProject SaveProject error", zap.Error(err))
@@ -185,7 +191,7 @@ func (ps *ProjectService) SaveProject(ctx context.Context, msg *project.ProjectR
 		}
 
 		//2. 保存项目和成员的关联表
-		pm := &pro.ProjectMember{
+		pm := &data.ProjectMember{
 			ProjectCode: pr.Id,
 			MemberCode:  msg.MemberId,
 			JoinTime:    time.Now().UnixMilli(),
@@ -196,6 +202,22 @@ func (ps *ProjectService) SaveProject(ctx context.Context, msg *project.ProjectR
 		if err != nil {
 			zap.L().Error("project SaveProject SaveProjectMember error", zap.Error(err))
 			return errs.GrpcError(model.DBError)
+		}
+		// 3. 保存task关系（生成任务步骤） project=》template=》task
+		for index, v := range stageTemplateList {
+			taskStage := &data.TaskStages{
+				ProjectCode: pr.Id,
+				Name:        v.Name,
+				Sort:        index + 1,
+				Description: "",
+				CreateTime:  time.Now().UnixMilli(),
+				Deleted:     model.NoDeleted,
+			}
+			err = ps.taskStagesRepo.SaveTaskStages(ctx, conn, taskStage)
+			if err != nil {
+				zap.L().Error("project SaveProject taskStagesRepo.SaveTaskStages error", zap.Error(err))
+				return errs.GrpcError(model.DBError)
+			}
 		}
 		return nil
 	})
@@ -268,7 +290,7 @@ func (ps *ProjectService) UpdateDeletedProject(ctx context.Context, msg *project
 func (ps *ProjectService) UpdateProject(ctx context.Context, msg *project.UpdateProjectMessage) (*project.UpdateProjectResponse, error) {
 	projectCodeStr, _ := encrypts.Decrypt(msg.ProjectCode, model.AESKey)
 	projectCode, _ := strconv.ParseInt(projectCodeStr, 10, 64)
-	proj := &pro.Project{
+	proj := &data.Project{
 		Id:                 projectCode,
 		Name:               msg.Name,
 		Description:        msg.Description,

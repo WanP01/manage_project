@@ -2,7 +2,7 @@ package dao
 
 import (
 	"context"
-	"project-project/internal/data/menu"
+	"project-project/internal/data"
 	"project-project/internal/database/gorms"
 )
 
@@ -16,8 +16,8 @@ func NewMenuDao() *MenuDao {
 	}
 }
 
-func (md *MenuDao) FindMenus(ctx context.Context) ([]*menu.ProjectMenu, error) {
-	var menus []*menu.ProjectMenu
+func (md *MenuDao) FindMenus(ctx context.Context) ([]*data.ProjectMenu, error) {
+	var menus []*data.ProjectMenu
 	err := md.conn.Session(ctx).Order("pid,sort asc,id asc").Find(&menus).Error
 	return menus, err
 }

@@ -9,10 +9,12 @@ import (
 	"project-common/discovery"
 	"project-common/logs"
 	"project-grpc/project"
+	"project-grpc/task"
 )
 
 // ProjectGrpcClient 全局变量（方便复用）
 var ProjectGrpcClient project.ProjectServiceClient
+var TaskGrpcClient task.TaskServiceClient
 
 func InitProjectGrpcClient() {
 	// 注册grpc resolver 解析器解析 URL
@@ -24,4 +26,5 @@ func InitProjectGrpcClient() {
 		log.Fatalf("did not connect:%v", err)
 	}
 	ProjectGrpcClient = project.NewProjectServiceClient(conn)
+	TaskGrpcClient = task.NewTaskServiceClient(conn)
 }
