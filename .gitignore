@@ -19,3 +19,5 @@
 /.vscode
 # Go workspace file
 go.work
+
+/project-api/upload

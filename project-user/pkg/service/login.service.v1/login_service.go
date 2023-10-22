@@ -43,8 +43,8 @@ func New() *LoginService {
 	}
 }
 
-func (ls *LoginService) GetCaptcha(ctx context.Context, cm *login.CaptchaMessage) (*login.CaptchaResponse, error) {
-	mobile := cm.Mobile
+func (ls *LoginService) GetCaptcha(ctx context.Context, msg *login.CaptchaMessage) (*login.CaptchaResponse, error) {
+	mobile := msg.Mobile
 	//生成验证码（随机4位或6位数字）
 	code := "12345"
 	//调用短信平台（三方 go协程异步执行，接口快速响应）
@@ -67,13 +67,13 @@ func (ls *LoginService) GetCaptcha(ctx context.Context, cm *login.CaptchaMessage
 	return &login.CaptchaResponse{Code: code}, nil
 }
 
-func (ls *LoginService) Register(ctx context.Context, rm *login.RegisterMessage) (*login.RegisterResponse, error) {
+func (ls *LoginService) Register(ctx context.Context, msg *login.RegisterMessage) (*login.RegisterResponse, error) {
 	//c, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	//defer cancel()
 	//c := context.Background()
 	// 1. 可以校验参数（也可以在调用GRPC 之前校验）
 	// 2. 校验验证码
-	res, err := ls.cache.Get(ctx, model.RegisterRedisKey+rm.Mobile)
+	res, err := ls.cache.Get(ctx, model.RegisterRedisKey+msg.Mobile)
 	if err == redis.Nil { // key不存在
 		zap.L().Error("Register redis get error", zap.Error(err))
 		return nil, errs.GrpcError(model.CaptchaNotExist)
@@ -82,12 +82,12 @@ func (ls *LoginService) Register(ctx context.Context, rm *login.RegisterMessage)
 		zap.L().Error("Register redis get error", zap.Error(err))
 		return nil, errs.GrpcError(model.RedisError)
 	}
-	if res != rm.Captcha { // 验证码不匹配
+	if res != msg.Captcha { // 验证码不匹配
 		return nil, errs.GrpcError(model.CaptchaError)
 	}
 	// 3. 校验业务逻辑（邮箱是否被注册/账号是否被注册/手机号是否被注册）
 	//邮箱校验
-	exit, err := ls.memberRepo.GetMemberByEmail(ctx, rm.Email)
+	exit, err := ls.memberRepo.GetMemberByEmail(ctx, msg.Email)
 	if err != nil {
 		return nil, errs.GrpcError(model.DBError)
 	}
@@ -95,7 +95,7 @@ func (ls *LoginService) Register(ctx context.Context, rm *login.RegisterMessage)
 		return nil, errs.GrpcError(model.EmailExist)
 	}
 	//账号校验
-	exit, err = ls.memberRepo.GetMemBerByAccount(ctx, rm.Name)
+	exit, err = ls.memberRepo.GetMemBerByAccount(ctx, msg.Name)
 	if err != nil {
 		return nil, errs.GrpcError(model.DBError)
 	}
@@ -103,7 +103,7 @@ func (ls *LoginService) Register(ctx context.Context, rm *login.RegisterMessage)
 		return nil, errs.GrpcError(model.AccountExist)
 	}
 	//手机号校验
-	exit, err = ls.memberRepo.GetMemberByMobile(ctx, rm.Mobile)
+	exit, err = ls.memberRepo.GetMemberByMobile(ctx, msg.Mobile)
 	if err != nil {
 		return nil, errs.GrpcError(model.DBError)
 	}
@@ -114,13 +114,13 @@ func (ls *LoginService) Register(ctx context.Context, rm *login.RegisterMessage)
 	// 整体流程应当采用事务流程保持原子性和一致性
 	err = ls.transaction.Action(
 		func(conn database.DbConn) error {
-			pwd := encrypts.Md5(rm.Password)
+			pwd := encrypts.Md5(msg.Password)
 			mem := &member.Member{
-				Account:       rm.Name,
+				Account:       msg.Name,
 				Password:      pwd,
-				Name:          rm.Name,
-				Mobile:        rm.Mobile,
-				Email:         rm.Email,
+				Name:          msg.Name,
+				Mobile:        msg.Mobile,
+				Email:         msg.Email,
 				CreateTime:    time.Now().UnixMilli(),
 				LastLoginTime: time.Now().UnixMilli(),
 				Status:        model.Normal,
@@ -149,11 +149,11 @@ func (ls *LoginService) Register(ctx context.Context, rm *login.RegisterMessage)
 	return &login.RegisterResponse{}, err
 }
 
-func (ls *LoginService) Login(ctx context.Context, lm *login.LoginMessage) (*login.LoginResponse, error) {
+func (ls *LoginService) Login(ctx context.Context, msg *login.LoginMessage) (*login.LoginResponse, error) {
 	//c := context.Background()
 	//1.先寻找登录的提交信息（username 和 password）是否存在
-	pwd := encrypts.Md5(lm.Password)
-	meminfo, err := ls.memberRepo.FindMember(ctx, lm.Account, pwd)
+	pwd := encrypts.Md5(msg.Password)
+	meminfo, err := ls.memberRepo.FindMember(ctx, msg.Account, pwd)
 	if err != nil {
 		zap.L().Error("Login db FindMember error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)
@@ -194,7 +194,8 @@ func (ls *LoginService) Login(ctx context.Context, lm *login.LoginMessage) (*log
 	memIdStr := strconv.FormatInt(memMsg.Id, 10)
 	exp := time.Duration(config.AppConf.Jc.AccessExp*3600*24) * time.Second
 	rExp := time.Duration(config.AppConf.Jc.RefreshExp*3600*24) * time.Second
-	token, err := jwts.CreateToken(memIdStr, exp, config.AppConf.Jc.AccessSecret, rExp, config.AppConf.Jc.RefreshSecret)
+	ip := msg.Ip
+	token, err := jwts.CreateToken(memIdStr, exp, config.AppConf.Jc.AccessSecret, rExp, config.AppConf.Jc.RefreshSecret, ip)
 	if err != nil {
 		zap.L().Error("Jwt Generate error", zap.Error(err))
 		return nil, errs.GrpcError(model.SyntaxError)
@@ -226,11 +227,12 @@ func (ls *LoginService) TokenVerify(ctx context.Context, msg *login.LoginMessage
 	//c := context.Background()
 	// 获取token并处理格式
 	token := msg.Token
+	ip := msg.Ip
 	if strings.Contains(token, "bearer") {
 		token = strings.ReplaceAll(token, "bearer ", "")
 	}
 	// 解析token，验证通过则取出存在内部的 memID
-	memIDstr, err := jwts.ParseToken(token, config.AppConf.Jc.AccessSecret)
+	memIDstr, err := jwts.ParseToken(token, config.AppConf.Jc.AccessSecret, ip)
 	if err != nil {
 		zap.L().Error("Login  TokenVerify error", zap.Error(err))
 		return nil, errs.GrpcError(model.NoLogin)
@@ -356,7 +358,7 @@ func (ls *LoginService) FindMemberById(ctx context.Context, msg *login.UserMessa
 
 func (ls *LoginService) FindMemInfoByIds(ctx context.Context, msg *login.UserMessage) (*login.MemberMessageList, error) {
 	mIds := msg.MIds
-	memberList, err := ls.memberRepo.FindMemberByIds(context.Background(), mIds)
+	memberList, err := ls.memberRepo.FindMemberByIds(ctx, mIds)
 	if err != nil {
 		zap.L().Error("FindMemInfoByIds db memberRepo.FindMemberByIds error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)

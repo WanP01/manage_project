@@ -27,7 +27,9 @@ message LoginMessage {
   string account = 1;
   string password = 2;
   string token = 3;
+  string ip = 4;
 }
+
 message LoginResponse{
   MemberMessage member = 1;
   repeated OrganizationMessage organizationList = 2;

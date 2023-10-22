@@ -5,13 +5,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"net/http"
+	"os"
+	"path"
 	"project-api/api/grpc"
 	"project-api/pkg/model"
 	"project-api/pkg/model/project"
+	"project-api/pkg/model/project_log"
 	"project-api/pkg/model/tasks"
 	common "project-common"
 	"project-common/errs"
+	"project-common/fs"
+	"project-common/tms"
 	"project-grpc/task"
+	"project-user/config"
+	"time"
 )
 
 type HandlerTask struct {
@@ -241,4 +248,265 @@ func (t *HandlerTask) myTaskList(ctx *gin.Context) {
 		"list":  myTaskList,
 		"total": myTaskListResponse.Total,
 	}))
+}
+
+func (t *HandlerTask) taskRead(ctx *gin.Context) {
+	result := &common.Result{}
+	taskCode := ctx.PostForm("taskCode")
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	msg := &task.TaskReqMessage{
+		TaskCode: taskCode,
+		MemberId: ctx.GetInt64("memberId"),
+	}
+	taskMessage, err := grpc.TaskGrpcClient.TaskRead(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	td := &tasks.TaskDisplay{}
+	copier.Copy(td, taskMessage)
+	if td != nil {
+		if td.Tags == nil {
+			td.Tags = []int{}
+		}
+		if td.ChildCount == nil {
+			td.ChildCount = []int{}
+		}
+	}
+	ctx.JSON(200, result.Success(td))
+}
+
+func (t *HandlerTask) listTaskMember(ctx *gin.Context) {
+	result := &common.Result{}
+	taskCode := ctx.PostForm("taskCode")
+	page := &model.Page{}
+	page.Bind(ctx)
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	msg := &task.TaskReqMessage{
+		TaskCode: taskCode,
+		MemberId: ctx.GetInt64("memberId"),
+		Page:     page.Page,
+		PageSize: page.PageSize,
+	}
+	taskMemberResponse, err := grpc.TaskGrpcClient.ListTaskMember(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	var tms []*tasks.TaskMember
+	copier.Copy(&tms, taskMemberResponse.List)
+	if tms == nil {
+		tms = []*tasks.TaskMember{}
+	}
+	ctx.JSON(http.StatusOK, result.Success(gin.H{
+		"list":  tms,
+		"total": taskMemberResponse.Total,
+		"page":  page.Page,
+	}))
+}
+
+func (t *HandlerTask) taskLog(ctx *gin.Context) {
+	result := &common.Result{}
+	var req *project_log.TaskLogReq
+	ctx.ShouldBind(&req)
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
+	}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	msg := &task.TaskReqMessage{
+		TaskCode: req.TaskCode,
+		MemberId: ctx.GetInt64("memberId"),
+		Page:     int64(req.Page),
+		PageSize: int64(req.PageSize),
+		All:      int32(req.All),
+		Comment:  int32(req.Comment),
+	}
+	taskLogResponse, err := grpc.TaskGrpcClient.TaskLog(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	var tms []*project_log.ProjectLogDisplay
+	copier.Copy(&tms, taskLogResponse.List)
+	if tms == nil {
+		tms = []*project_log.ProjectLogDisplay{}
+	}
+	ctx.JSON(http.StatusOK, result.Success(gin.H{
+		"list":  tms,
+		"total": taskLogResponse.Total,
+		"page":  req.Page,
+	}))
+}
+
+func (t *HandlerTask) taskWorkTimeList(ctx *gin.Context) {
+	taskCode := ctx.PostForm("taskCode")
+	result := &common.Result{}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	msg := &task.TaskReqMessage{
+		TaskCode: taskCode,
+		MemberId: ctx.GetInt64("memberId"),
+	}
+	taskWorkTimeResponse, err := grpc.TaskGrpcClient.TaskWorkTimeList(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	var tms []*tasks.TaskWorkTime
+	copier.Copy(&tms, taskWorkTimeResponse.List)
+	if tms == nil {
+		tms = []*tasks.TaskWorkTime{}
+	}
+	ctx.JSON(http.StatusOK, result.Success(tms))
+}
+
+func (t *HandlerTask) saveTaskWorkTime(ctx *gin.Context) {
+	result := &common.Result{}
+	var req *tasks.SaveTaskWorkTimeReq
+	ctx.ShouldBind(&req)
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	msg := &task.TaskReqMessage{
+		TaskCode:  req.TaskCode,
+		MemberId:  ctx.GetInt64("memberId"),
+		Content:   req.Content,
+		Num:       int32(req.Num),
+		BeginTime: tms.ParseTime(req.BeginTime),
+	}
+	_, err := grpc.TaskGrpcClient.SaveTaskWorkTime(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	ctx.JSON(http.StatusOK, result.Success([]int{}))
+}
+
+func (t *HandlerTask) uploadFiles(ctx *gin.Context) {
+	result := &common.Result{}
+	req := model.UploadFileReq{}
+	ctx.ShouldBind(&req)
+	//处理文件
+	multipartForm, _ := ctx.MultipartForm()
+	file := multipartForm.File
+	//假设只上传一个文件
+	uploadFile := file["file"][0]
+	//第一种 没有达成分片的条件
+	key := ""
+	if req.TotalChunks == 1 {
+		//不分片，不需要处理拼接，直接存储就行
+		// path upload/项目Id/任务Id/时间戳/Filename
+		path := "upload/" + req.ProjectCode + "/" + req.TaskCode + "/" + tms.FormatYMD(time.Now())
+		if !fs.IsExist(path) { //判断路径是否存在
+			os.MkdirAll(path, os.ModePerm) // 不存在就新建路径
+		}
+		dst := path + "/" + req.Filename
+		key = dst //upload/项目Id/任务Id/时间戳/Filename
+		err := ctx.SaveUploadedFile(uploadFile, dst)
+		if err != nil {
+			ctx.JSON(http.StatusOK, result.Fail(-999, err.Error()))
+			return
+		}
+	}
+	if req.TotalChunks > 1 {
+		//分片上传 无非就是先把每次的存储起来 追加就可以了
+		path := "upload/" + req.ProjectCode + "/" + req.TaskCode + "/" + tms.FormatYMD(time.Now())
+		if !fs.IsExist(path) {
+			os.MkdirAll(path, os.ModePerm)
+		}
+		fileName := path + "/" + req.Identifier                                                // upload/项目Id/任务Id/时间戳/identifier
+		openFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm) //创建并打开目标存储文件
+		if err != nil {
+			ctx.JSON(http.StatusOK, result.Fail(-999, err.Error()))
+			return
+		}
+		// 打开上传文件的内容
+		open, err := uploadFile.Open()
+		if err != nil {
+			ctx.JSON(http.StatusOK, result.Fail(-999, err.Error()))
+			return
+		}
+		defer open.Close()
+		//读取上传文件
+		buf := make([]byte, req.CurrentChunkSize)
+		open.Read(buf)
+		//写入目标文件并关闭
+		openFile.Write(buf)
+		openFile.Close()
+		//如果是最后一个，那么将名字改为filename
+		key = fileName //upload/项目Id/任务Id/时间戳/identifier
+
+		// upload/项目Id/任务Id/时间戳/identifier =》 upload/项目Id/任务Id/时间戳/Filename
+		if req.TotalChunks == req.ChunkNumber {
+			//最后一个分片了
+			newPath := path + "/" + req.Filename
+			key = newPath
+			os.Rename(fileName, newPath)
+		}
+	}
+	//调用服务 存入file表 ms_file && ms_source_link
+	//ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+
+	fileUrl := model.HttpProtocol + config.AppConf.Sc.Addr + "/" + key
+
+	//最后一次 相关文件信息 才保存在mysql中
+	if req.TotalChunks == req.ChunkNumber {
+		msg := &task.TaskFileReqMessage{
+			TaskCode:         req.TaskCode,
+			ProjectCode:      req.ProjectCode,
+			OrganizationCode: ctx.GetString("organizationCode"),
+			PathName:         key,
+			FileName:         req.Filename,
+			Size:             int64(req.TotalSize),
+			Extension:        path.Ext(key),
+			FileUrl:          fileUrl,
+			FileType:         file["file"][0].Header.Get("Content-Type"),
+			MemberId:         ctx.GetInt64("memberId"),
+		}
+
+		_, err := grpc.TaskGrpcClient.SaveTaskFile(ctx, msg)
+		if err != nil {
+			code, msg := errs.ParseGrpcError(err)
+			ctx.JSON(http.StatusOK, result.Fail(code, msg))
+		}
+	}
+
+	// 但每个分片都需要返回响应
+	ctx.JSON(http.StatusOK, result.Success(gin.H{
+		"file":        key, // 文件标记 upload/项目Id/任务Id/时间戳/filename
+		"hash":        "",
+		"key":         key,
+		"url":         fileUrl, // 文件URL http://localhost/upload/项目Id/任务Id/时间戳/filename
+		"projectName": req.ProjectName,
+	}))
+	return
+}
+
+func (t *HandlerTask) taskSources(c *gin.Context) {
+	result := &common.Result{}
+	taskCode := c.PostForm("taskCode")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	sources, err := grpc.TaskGrpcClient.TaskSources(ctx, &task.TaskReqMessage{TaskCode: taskCode})
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		c.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	var slList []*model.SourceLink
+	copier.Copy(&slList, sources.List)
+	if slList == nil {
+		slList = []*model.SourceLink{}
+	}
+	c.JSON(http.StatusOK, result.Success(slList))
 }

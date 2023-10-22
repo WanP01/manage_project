@@ -102,6 +102,8 @@ func (hu *HandlerUser) login(ctx *gin.Context) {
 	//c := context.Background() // 调试用
 	msg := &login.LoginMessage{}
 	err = copier.Copy(msg, req)
+	// 增加IP地址信息
+	msg.Ip = GetIp(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusOK, result.Fail(http.StatusBadRequest, err.Error()))
 		return
@@ -150,4 +152,12 @@ func (hu *HandlerUser) myOrgList(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, result.Success(OrgList))
 
+}
+
+func GetIp(ctx *gin.Context) string {
+	ip := ctx.ClientIP()
+	if ip == "::1" {
+		ip = "127.0.0.1"
+	}
+	return ip
 }

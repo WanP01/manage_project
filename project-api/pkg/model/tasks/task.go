@@ -45,6 +45,8 @@ type TaskDisplay struct {
 	Stared        int      `json:"stared"`
 	Tags          []int    `json:"tags"`
 	ChildCount    []int    `json:"childCount"`
+	ProjectName   string   `json:"projectName"`
+	StageName     string   `json:"stageName"`
 }
 
 type Executor struct {
@@ -76,7 +78,7 @@ type MyTaskReq struct {
 	Type     int   `form:"type"`
 }
 
-// MyTaskDisplay task + project info
+// MyTaskDisplay task + project info 响应struct
 type MyTaskDisplay struct {
 	ProjectCode        string      `json:"project_code"`
 	Name               string      `json:"name"`
@@ -131,6 +133,7 @@ type MyTaskDisplay struct {
 	ProjectInfo        ProjectInfo `json:"projectInfo"`
 }
 
+// ProjectInfo 响应（辅助）
 type ProjectInfo struct {
 	Name string `json:"name"`
 	Code string `json:"code"`

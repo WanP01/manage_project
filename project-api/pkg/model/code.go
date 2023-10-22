@@ -7,3 +7,7 @@ import (
 var (
 	NoLegalMobile = errs.NewError(2001, "手机号不合法") //手机号格式不合法
 )
+
+const (
+	HttpProtocol = "http://"
+)

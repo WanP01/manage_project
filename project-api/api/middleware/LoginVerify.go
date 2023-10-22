@@ -18,7 +18,8 @@ func TokenVerify() func(*gin.Context) {
 		//c, cancelFunc := context.WithTimeout(context.Background(), 2*time.Second)
 		//defer cancelFunc()
 		//c := context.Background()
-		response, err := grpc.UserGrpcClient.TokenVerify(ctx, &login.LoginMessage{Token: token})
+		ip := GetIp(ctx)
+		response, err := grpc.UserGrpcClient.TokenVerify(ctx, &login.LoginMessage{Token: token, Ip: ip})
 		if err != nil {
 			code, msg := errs.ParseGrpcError(err)
 			ctx.JSON(http.StatusOK, result.Fail(code, msg))
@@ -31,4 +32,12 @@ func TokenVerify() func(*gin.Context) {
 		ctx.Set("organizationCode", response.Member.OrganizationCode)
 		ctx.Next()
 	}
+}
+
+func GetIp(ctx *gin.Context) string {
+	ip := ctx.ClientIP()
+	if ip == "::1" {
+		ip = "127.0.0.1"
+	}
+	return ip
 }

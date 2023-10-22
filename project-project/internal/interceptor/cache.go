@@ -6,7 +6,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"project-common/encrypts"
-	"project-grpc/project"
 	"project-project/internal/dao"
 	"project-project/internal/repo"
 	"time"
@@ -14,7 +13,7 @@ import (
 
 var (
 	grpcReqRspMap = map[string]any{
-		"/project.service.v1.ProjectService/Index": &project.IndexResponse{},
+		//"/project.service.v1.ProjectService/Index": &project.IndexResponse{},
 		//"/project.service.v1.ProjectService/FindProjectByMemId":  &project.MyProjectResponse{},
 		//"/project.service.v1.ProjectService/FindProjectTemplate": &project.ProjectTemplateResponse{},
 		//"/project.service.v1.ProjectService/FindProjectDetail":   &project.ProjectDetailMessage{},
