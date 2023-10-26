@@ -10,7 +10,7 @@ import (
 	"project-api/api/grpc"
 	"project-api/pkg/model"
 	"project-api/pkg/model/file"
-	"project-api/pkg/model/project"
+	"project-api/pkg/model/pro"
 	"project-api/pkg/model/project_log"
 	"project-api/pkg/model/tasks"
 	common "project-common"
@@ -104,14 +104,14 @@ func (ht *HandlerTask) memberProjectList(ctx *gin.Context) {
 	//	resp.List = []*task.MemberProjectMessage{}
 	//}
 	// 3. 拼整数据 grpc => http
-	var list []*project.MemberProjectResp
+	var list []*pro.MemberProjectResp
 	err = copier.Copy(&list, resp.List)
 	if err != nil {
 		ctx.JSON(http.StatusOK, result.Fail(http.StatusBadRequest, err.Error()))
 		return
 	}
 	if list == nil { // 赋予默认值
-		list = []*project.MemberProjectResp{}
+		list = []*pro.MemberProjectResp{}
 	}
 
 	ctx.JSON(http.StatusOK, result.Success(gin.H{

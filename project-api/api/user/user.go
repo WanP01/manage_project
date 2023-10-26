@@ -82,7 +82,7 @@ func (hu *HandlerUser) register(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, result.Fail(code, msg))
 		return
 	}
-	// 4. 返回响应
+	// 5. 返回响应
 	ctx.JSON(http.StatusOK, result.Success(""))
 	return
 }

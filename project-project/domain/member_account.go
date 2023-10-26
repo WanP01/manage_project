@@ -11,13 +11,13 @@ import (
 	"project-project/pkg/model"
 )
 
-type AccountDomain struct {
-	accountRepo      repo.AccountRepo
-	userGrpcDomain   *UserRpcDomain
-	departmentDomain *DepartmentDomain
+type MemberAccountDomain struct {
+	memberAccountRepo repo.MemberAccountRepo
+	userGrpcDomain    *UserRpcDomain
+	departmentDomain  *DepartmentDomain
 }
 
-func (d AccountDomain) AccountList(ctx context.Context, organizationCode string, memberId int64, page int64, pageSize int64, departmentCode string, searchType int32) ([]*data.MemberAccountDisplay, int64, *errs.BError) {
+func (d MemberAccountDomain) AccountList(ctx context.Context, organizationCode string, memberId int64, page int64, pageSize int64, departmentCode string, searchType int32) ([]*data.MemberAccountDisplay, int64, *errs.BError) {
 	condition := ""
 	organizationCodeId := encrypts.DecryptNoErr(organizationCode)
 	departmentCodeId := encrypts.DecryptNoErr(departmentCode)
@@ -37,7 +37,7 @@ func (d AccountDomain) AccountList(ctx context.Context, organizationCode string,
 	//defer cancel()
 
 	//查询账号列表
-	list, total, err := d.accountRepo.FindList(ctx, condition, organizationCodeId, departmentCodeId, page, pageSize)
+	list, total, err := d.memberAccountRepo.FindList(ctx, condition, organizationCodeId, departmentCodeId, page, pageSize)
 	if err != nil {
 		return nil, 0, model.DBError
 	}
@@ -47,6 +47,9 @@ func (d AccountDomain) AccountList(ctx context.Context, organizationCode string,
 		// 查询用户信息
 		memberInfo, _ := d.userGrpcDomain.MemberInfo(ctx, v.MemberCode)
 		display.Avatar = memberInfo.Avatar
+		display.Name = memberInfo.Name
+		display.Mobile = memberInfo.Mobile
+		display.Email = memberInfo.Email
 		if v.DepartmentCode > 0 {
 			department, err := d.departmentDomain.FindDepartmentById(ctx, v.DepartmentCode)
 			if err != nil {
@@ -59,10 +62,18 @@ func (d AccountDomain) AccountList(ctx context.Context, organizationCode string,
 	return dList, total, nil
 }
 
-func NewAccountDomain() *AccountDomain {
-	return &AccountDomain{
-		accountRepo:      dao.NewMemberAccountDao(),
-		userGrpcDomain:   NewUserRpcDomain(),
-		departmentDomain: NewDepartmentDomain(),
+func (d *MemberAccountDomain) FindAccount(ctx context.Context, memberId int64) (*data.MemberAccount, *errs.BError) {
+	account, err := d.memberAccountRepo.FindByMemberId(ctx, memberId)
+	if err != nil {
+		return nil, model.DBError
+	}
+	return account, nil
+}
+
+func NewMemberAccountDomain() *MemberAccountDomain {
+	return &MemberAccountDomain{
+		memberAccountRepo: dao.NewMemberAccountDao(),
+		userGrpcDomain:    NewUserRpcDomain(),
+		departmentDomain:  NewDepartmentDomain(),
 	}
 }

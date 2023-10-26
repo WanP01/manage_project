@@ -23,9 +23,13 @@ func (pu *RouterProject) Route(r *gin.Engine) {
 	// 初始化Project的Grpc Client=》 ProjectGrpcClinet
 	grpc.InitProjectGrpcClient()
 	//注册验证码函数
-	h := NewHandlerProject()
+
 	group := r.Group("/project")
-	group.Use(middleware.TokenVerify())
+	group.Use(middleware.TokenVerify())   //确认token
+	group.Use(middleware.NodeAuthCheck()) // 确认路径权限
+	group.Use(middleware.ProjectAuth())   // 确认项目权限
+
+	h := NewHandlerProject()
 	group.POST("/index", h.index)
 	group.POST("/project/selfList", h.myProjectList)
 	group.POST("/project", h.myProjectList)
@@ -37,6 +41,7 @@ func (pu *RouterProject) Route(r *gin.Engine) {
 	group.POST("/project_collect/collect", h.projectCollect)
 	group.POST("/project/edit", h.projectEdit)
 	group.POST("/project/getLogBySelfProject", h.getLogBySelfProject)
+	group.POST("/node", h.nodeList)
 
 	t := NewHandleTask()
 	group.POST("/task_stages", t.taskStages)
@@ -64,4 +69,8 @@ func (pu *RouterProject) Route(r *gin.Engine) {
 
 	auth := NewAuth()
 	group.POST("/auth", auth.authList)
+	group.POST("/auth/apply", auth.apply)
+
+	menu := NewMenu()
+	group.POST("/menu/menu", menu.menuList)
 }

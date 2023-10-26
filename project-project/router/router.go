@@ -11,14 +11,16 @@ import (
 	"project-grpc/account"
 	"project-grpc/auth"
 	"project-grpc/department"
+	"project-grpc/menu"
 	"project-grpc/project"
 	"project-grpc/task"
 	"project-project/config"
 	"project-project/internal/interceptor"
 	"project-project/internal/rpc"
 	AccountServiceV1 "project-project/pkg/service/account.service.v1"
-	authServiceV1 "project-project/pkg/service/auth.service.v1"
+	AuthServiceV1 "project-project/pkg/service/auth.service.v1"
 	DepartmentServiceV1 "project-project/pkg/service/department.service.v1"
+	MenuServiceV1 "project-project/pkg/service/menu.service.v1"
 	ProjectServiceV1 "project-project/pkg/service/project.service.v1"
 	TaskServiceV1 "project-project/pkg/service/task.service.v1"
 )
@@ -78,7 +80,8 @@ func RegisterGrpc() *grpc.Server {
 			task.RegisterTaskServiceServer(s, TaskServiceV1.New())
 			account.RegisterAccountServiceServer(s, AccountServiceV1.New())
 			department.RegisterDepartmentServiceServer(s, DepartmentServiceV1.New())
-			auth.RegisterAuthServiceServer(s, authServiceV1.New())
+			auth.RegisterAuthServiceServer(s, AuthServiceV1.New())
+			menu.RegisterMenuServiceServer(s, MenuServiceV1.New())
 		}}
 	cacheInterceptor := interceptor.NewCacheInterceptor()
 	s := grpc.NewServer(cacheInterceptor.CacheInterceptor())

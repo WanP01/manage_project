@@ -8,6 +8,7 @@ import (
 	"project-grpc/user/login"
 	"project-user/config"
 	"project-user/internal/interceptor"
+	"project-user/internal/rpc"
 	LoginServiceV1 "project-user/pkg/service/login.service.v1"
 
 	"github.com/gin-gonic/gin"
@@ -102,4 +103,9 @@ func RegisterEtcd() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+}
+
+// InitProjectGrpc 注册User grpc 客户端连接
+func InitProjectGrpc() {
+	rpc.InitProjectGrpcClient()
 }

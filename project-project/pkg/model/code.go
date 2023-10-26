@@ -8,6 +8,7 @@ var (
 	RedisError            = errs.NewError(999, "redis错误")
 	DBError               = errs.NewError(998, "db错误")
 	SyntaxError           = errs.NewError(997, "model格式不正确")
+	ParamsError           = errs.NewError(401, "参数错误")
 	NoLegalMobile         = errs.NewError(10102001, "手机号不合法")
 	CaptchaNotExist       = errs.NewError(10102002, "验证码不存在或者已过期")
 	CaptchaError          = errs.NewError(10102003, "验证码错误")

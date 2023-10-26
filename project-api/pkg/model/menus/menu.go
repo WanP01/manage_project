@@ -1,4 +1,4 @@
-package menu
+package menus
 
 // Menu 响应struct
 type Menu struct {

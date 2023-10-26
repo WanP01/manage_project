@@ -11,6 +11,7 @@ import (
 	"project-common/jwts"
 	"project-common/tms"
 	"project-grpc/user/login"
+	"project-project/domain"
 	"project-user/config"
 	"project-user/internal/dao"
 	"project-user/internal/data/member"
@@ -32,6 +33,7 @@ type LoginService struct {
 	memberRepo       repo.MemberRepo
 	organizationRepo repo.OrganizationRepo
 	transaction      tran.Transaction
+	projectDomain    *domain.ProjectNodeDomain
 }
 
 func New() *LoginService {
@@ -40,6 +42,7 @@ func New() *LoginService {
 		memberRepo:       dao.NewMemberDao(),
 		organizationRepo: dao.NewOrganizationDao(),
 		transaction:      dao.NewTransactionDao(),
+		projectDomain:    domain.NewProjectNodeDomain(),
 	}
 }
 
@@ -142,9 +145,9 @@ func (ls *LoginService) Register(ctx context.Context, msg *login.RegisterMessage
 				zap.L().Error("Register db SaveOrganization error", zap.Error(err))
 				return errs.GrpcError(model.DBError)
 			}
+			//生成一个账户，账户的授权角色 是成员，新生成一个角色（如果没有），同时将此角色的授权node 生成
 			return nil
 		})
-
 	// 5. 返回结果
 	return &login.RegisterResponse{}, err
 }

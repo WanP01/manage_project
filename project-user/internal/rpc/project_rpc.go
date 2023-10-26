@@ -1,11 +1,10 @@
-package grpc
+package rpc
 
 import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/resolver"
 	"log"
-	"project-api/config"
 	"project-common/discovery"
 	"project-common/logs"
 	"project-grpc/account"
@@ -14,6 +13,7 @@ import (
 	"project-grpc/menu"
 	"project-grpc/project"
 	"project-grpc/task"
+	"project-user/config"
 )
 
 // ProjectGrpcClient 全局变量（方便复用）

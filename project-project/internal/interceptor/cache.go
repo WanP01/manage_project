@@ -52,6 +52,9 @@ func (ci *CacheInterceptor) CacheInterceptor() grpc.ServerOption {
 		if respType == nil {
 			return handler(ctx, req)
 		}
+		//通过node列表查询是否需要权限控制
+		//可以考虑缓存
+
 		// 尝试拿取redis中的缓存
 		c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()

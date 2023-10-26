@@ -1,4 +1,4 @@
-package project
+package pro
 
 // Project 项目detail
 type Project struct {

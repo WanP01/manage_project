@@ -14,23 +14,23 @@ import (
 
 type AccountService struct {
 	account.UnimplementedAccountServiceServer
-	cache             repo.Cache
-	transaction       tran.Transaction
-	accountDomain     *domain.AccountDomain
-	projectAuthDomain *domain.ProjectAuthDomain
+	cache               repo.Cache
+	transaction         tran.Transaction
+	memberAccountDomain *domain.MemberAccountDomain
+	projectAuthDomain   *domain.ProjectAuthDomain
 }
 
 func New() *AccountService {
 	return &AccountService{
-		cache:             dao.Rc,
-		transaction:       dao.NewTransactionDao(),
-		accountDomain:     domain.NewAccountDomain(),
-		projectAuthDomain: domain.NewProjectAuthDomain(),
+		cache:               dao.Rc,
+		transaction:         dao.NewTransactionDao(),
+		memberAccountDomain: domain.NewMemberAccountDomain(),
+		projectAuthDomain:   domain.NewProjectAuthDomain(),
 	}
 }
 
 func (as *AccountService) Account(ctx context.Context, msg *account.AccountReqMessage) (*account.AccountResponse, error) {
-	accountList, total, err := as.accountDomain.AccountList(
+	accountList, total, err := as.memberAccountDomain.AccountList(
 		ctx,
 		msg.OrganizationCode,
 		msg.MemberId,

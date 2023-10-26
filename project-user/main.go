@@ -15,6 +15,9 @@ func main() {
 	//路由注册
 	router.InitRouter(r)
 
+	// Project grpc 连接注册 //初始化rpc调用
+	router.InitProjectGrpc()
+
 	//gRPC注册
 	gc := router.RegisterGrpc()
 

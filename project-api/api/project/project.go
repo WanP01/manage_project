@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"project-api/api/grpc"
 	"project-api/pkg/model"
-	"project-api/pkg/model/menu"
-	pro "project-api/pkg/model/project"
+	"project-api/pkg/model/menus"
+	"project-api/pkg/model/pro"
 	"project-api/pkg/model/project_log"
 	common "project-common"
 	"project-common/errs"
@@ -41,7 +41,7 @@ func (hp *HandlerProject) index(ctx *gin.Context) {
 		return
 	}
 	// 回复响应的用户数据，变更格式
-	var ms []*menu.Menu
+	var ms []*menus.Menu
 	err = copier.Copy(&ms, Resp.Menus)
 	if err != nil {
 		ctx.JSON(http.StatusOK, result.Fail(http.StatusBadRequest, err.Error()))
@@ -298,3 +298,41 @@ func (hp *HandlerProject) getLogBySelfProject(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, result.Success(list))
 }
+
+func (hp *HandlerProject) nodeList(ctx *gin.Context) {
+	result := &common.Result{}
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	response, err := grpc.ProjectGrpcClient.NodeList(c, &project.ProjectRpcMessage{})
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	var list []*pro.ProjectNodeTree
+	copier.Copy(&list, response.Nodes)
+	ctx.JSON(http.StatusOK, result.Success(gin.H{
+		"nodes": list,
+	}))
+}
+
+//func (p *HandlerProject) FindProjectByMemberId(memberId int64, projectCode string, taskCode string) (*pro.Project, bool, bool, *errs.BError) {
+//	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+//	defer cancel()
+//	msg := &project.ProjectRpcMessage{
+//		MemberId:    memberId,
+//		ProjectCode: projectCode,
+//		TaskCode:    taskCode,
+//	}
+//	projectResponse, err := grpc.ProjectGrpcClient.FindProjectByMemberId(ctx, msg)
+//	if err != nil {
+//		code, msg := errs.ParseGrpcError(err)
+//		return nil, false, false, errs.NewError(errs.ErrorCode(code), msg)
+//	}
+//	if projectResponse.Project == nil {
+//		return nil, false, false, nil
+//	}
+//	pr := &pro.Project{}
+//	copier.Copy(pr, projectResponse.Project)
+//	return pr, true, projectResponse.IsOwner, nil
+//}
