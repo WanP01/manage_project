@@ -34,4 +34,5 @@ type TaskRepo interface {
 	FindTaskByMemberCode(ctx context.Context, memberId int64, done int, page int64, size int64) ([]*data.Task, int64, error)
 	FindTaskByCreateBy(ctx context.Context, memberId int64, done int, page int64, size int64) ([]*data.Task, int64, error)
 	FindTaskMemberPage(ctx context.Context, taskCode int64, page int64, size int64) ([]*data.TaskMember, int64, error)
+	FindTaskByIds(ctx context.Context, ids []int64) ([]*data.Task, error)
 }

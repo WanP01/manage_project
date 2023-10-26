@@ -288,7 +288,8 @@ message SourceDetail {
   string FullName = 20;
 }
 
-
+message CreateCommentResponse{
+}
 
 
 service TaskService {
@@ -305,4 +306,5 @@ service TaskService {
   rpc SaveTaskWorkTime(TaskReqMessage) returns(SaveTaskWorkTimeResponse){}
   rpc SaveTaskFile(TaskFileReqMessage) returns(TaskFileResponse){}
   rpc TaskSources(TaskReqMessage) returns(TaskSourceResponse){}
+  rpc CreateComment(TaskReqMessage) returns(CreateCommentResponse){}
 }

@@ -9,6 +9,7 @@ import (
 	"path"
 	"project-api/api/grpc"
 	"project-api/pkg/model"
+	"project-api/pkg/model/file"
 	"project-api/pkg/model/project"
 	"project-api/pkg/model/project_log"
 	"project-api/pkg/model/tasks"
@@ -28,7 +29,7 @@ func NewHandleTask() *HandlerTask {
 	return &HandlerTask{}
 }
 
-func (t HandlerTask) taskStages(ctx *gin.Context) {
+func (ht *HandlerTask) taskStages(ctx *gin.Context) {
 	result := &common.Result{}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
@@ -77,7 +78,7 @@ func (t HandlerTask) taskStages(ctx *gin.Context) {
 	}))
 }
 
-func (t HandlerTask) memberProjectList(ctx *gin.Context) {
+func (ht *HandlerTask) memberProjectList(ctx *gin.Context) {
 	result := &common.Result{}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
@@ -120,7 +121,7 @@ func (t HandlerTask) memberProjectList(ctx *gin.Context) {
 	}))
 }
 
-func (t HandlerTask) taskList(ctx *gin.Context) {
+func (ht *HandlerTask) taskList(ctx *gin.Context) {
 	result := &common.Result{}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
@@ -159,7 +160,7 @@ func (t HandlerTask) taskList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success(list))
 }
 
-func (t *HandlerTask) taskSave(ctx *gin.Context) {
+func (ht *HandlerTask) taskSave(ctx *gin.Context) {
 	result := &common.Result{}
 	var req *tasks.TaskSaveReq
 	ctx.ShouldBind(&req)
@@ -191,7 +192,7 @@ func (t *HandlerTask) taskSave(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success(td))
 }
 
-func (t *HandlerTask) taskSort(ctx *gin.Context) {
+func (ht *HandlerTask) taskSort(ctx *gin.Context) {
 	result := &common.Result{}
 	var req *tasks.TaskSortReq
 	ctx.ShouldBind(&req)
@@ -213,7 +214,7 @@ func (t *HandlerTask) taskSort(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success([]int{}))
 }
 
-func (t *HandlerTask) myTaskList(ctx *gin.Context) {
+func (ht *HandlerTask) myTaskList(ctx *gin.Context) {
 	result := &common.Result{}
 	var req *tasks.MyTaskReq
 	ctx.ShouldBind(&req)
@@ -250,7 +251,7 @@ func (t *HandlerTask) myTaskList(ctx *gin.Context) {
 	}))
 }
 
-func (t *HandlerTask) taskRead(ctx *gin.Context) {
+func (ht *HandlerTask) taskRead(ctx *gin.Context) {
 	result := &common.Result{}
 	taskCode := ctx.PostForm("taskCode")
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -278,7 +279,7 @@ func (t *HandlerTask) taskRead(ctx *gin.Context) {
 	ctx.JSON(200, result.Success(td))
 }
 
-func (t *HandlerTask) listTaskMember(ctx *gin.Context) {
+func (ht *HandlerTask) listTaskMember(ctx *gin.Context) {
 	result := &common.Result{}
 	taskCode := ctx.PostForm("taskCode")
 	page := &model.Page{}
@@ -309,7 +310,7 @@ func (t *HandlerTask) listTaskMember(ctx *gin.Context) {
 	}))
 }
 
-func (t *HandlerTask) taskLog(ctx *gin.Context) {
+func (ht *HandlerTask) taskLog(ctx *gin.Context) {
 	result := &common.Result{}
 	var req *project_log.TaskLogReq
 	ctx.ShouldBind(&req)
@@ -347,7 +348,7 @@ func (t *HandlerTask) taskLog(ctx *gin.Context) {
 	}))
 }
 
-func (t *HandlerTask) taskWorkTimeList(ctx *gin.Context) {
+func (ht *HandlerTask) taskWorkTimeList(ctx *gin.Context) {
 	taskCode := ctx.PostForm("taskCode")
 	result := &common.Result{}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -370,7 +371,7 @@ func (t *HandlerTask) taskWorkTimeList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success(tms))
 }
 
-func (t *HandlerTask) saveTaskWorkTime(ctx *gin.Context) {
+func (ht *HandlerTask) saveTaskWorkTime(ctx *gin.Context) {
 	result := &common.Result{}
 	var req *tasks.SaveTaskWorkTimeReq
 	ctx.ShouldBind(&req)
@@ -392,9 +393,9 @@ func (t *HandlerTask) saveTaskWorkTime(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success([]int{}))
 }
 
-func (t *HandlerTask) uploadFiles(ctx *gin.Context) {
+func (ht *HandlerTask) uploadFiles(ctx *gin.Context) {
 	result := &common.Result{}
-	req := model.UploadFileReq{}
+	req := file.UploadFileReq{}
 	ctx.ShouldBind(&req)
 	//处理文件
 	multipartForm, _ := ctx.MultipartForm()
@@ -493,7 +494,7 @@ func (t *HandlerTask) uploadFiles(ctx *gin.Context) {
 	return
 }
 
-func (t *HandlerTask) taskSources(c *gin.Context) {
+func (ht *HandlerTask) taskSources(c *gin.Context) {
 	result := &common.Result{}
 	taskCode := c.PostForm("taskCode")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -503,10 +504,30 @@ func (t *HandlerTask) taskSources(c *gin.Context) {
 		code, msg := errs.ParseGrpcError(err)
 		c.JSON(http.StatusOK, result.Fail(code, msg))
 	}
-	var slList []*model.SourceLink
+	var slList []*file.SourceLink
 	copier.Copy(&slList, sources.List)
 	if slList == nil {
-		slList = []*model.SourceLink{}
+		slList = []*file.SourceLink{}
 	}
 	c.JSON(http.StatusOK, result.Success(slList))
+}
+
+func (ht *HandlerTask) createComment(c *gin.Context) {
+	result := &common.Result{}
+	req := model.CommentReq{}
+	c.ShouldBind(&req)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	msg := &task.TaskReqMessage{
+		TaskCode:       req.TaskCode,
+		CommentContent: req.Comment,
+		Mentions:       req.Mentions,
+		MemberId:       c.GetInt64("memberId"),
+	}
+	_, err := grpc.TaskGrpcClient.CreateComment(ctx, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		c.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	c.JSON(http.StatusOK, result.Success(true))
 }

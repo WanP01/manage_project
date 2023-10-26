@@ -8,6 +8,9 @@ import (
 	"project-api/config"
 	"project-common/discovery"
 	"project-common/logs"
+	"project-grpc/account"
+	"project-grpc/auth"
+	"project-grpc/department"
 	"project-grpc/project"
 	"project-grpc/task"
 )
@@ -15,6 +18,9 @@ import (
 // ProjectGrpcClient 全局变量（方便复用）
 var ProjectGrpcClient project.ProjectServiceClient
 var TaskGrpcClient task.TaskServiceClient
+var AccountGrpcClient account.AccountServiceClient
+var DepartmentGrpcClient department.DepartmentServiceClient
+var AuthGrpcClient auth.AuthServiceClient
 
 func InitProjectGrpcClient() {
 	// 注册grpc resolver 解析器解析 URL
@@ -27,4 +33,7 @@ func InitProjectGrpcClient() {
 	}
 	ProjectGrpcClient = project.NewProjectServiceClient(conn)
 	TaskGrpcClient = task.NewTaskServiceClient(conn)
+	AccountGrpcClient = account.NewAccountServiceClient(conn)
+	DepartmentGrpcClient = department.NewDepartmentServiceClient(conn)
+	AuthGrpcClient = auth.NewAuthServiceClient(conn)
 }

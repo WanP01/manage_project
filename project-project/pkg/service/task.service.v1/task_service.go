@@ -10,12 +10,12 @@ import (
 	"project-common/tms"
 	"project-grpc/task"
 	"project-grpc/user/login"
+	"project-project/domain"
 	"project-project/internal/dao"
 	"project-project/internal/data"
 	"project-project/internal/database"
 	"project-project/internal/database/tran"
 	"project-project/internal/repo"
-	"project-project/internal/rpc"
 	"project-project/pkg/model"
 	"time"
 )
@@ -31,9 +31,11 @@ type TaskService struct {
 	taskStagesRepo         repo.TaskStagesRepo
 	taskRepo               repo.TaskRepo
 	projectLogRepo         repo.ProjectLogRepo
-	taskWorkTimeRepo       repo.TaskWorkTimeRepo
-	fileRepo               repo.FileRepo
-	sourceLinkRepo         repo.SourceLinkRepo
+	//taskWorkTimeRepo       repo.TaskWorkTimeRepo
+	fileRepo           repo.FileRepo
+	sourceLinkRepo     repo.SourceLinkRepo
+	taskWorkTimeDomain *domain.TaskWorkTimeDomain //依赖注入
+	userRpcDomain      *domain.UserRpcDomain      //依赖注入
 }
 
 func New() *TaskService {
@@ -47,9 +49,11 @@ func New() *TaskService {
 		taskStagesRepo:         dao.NewTaskStagesDao(),
 		taskRepo:               dao.NewTaskDao(),
 		projectLogRepo:         dao.NewProjectLogDao(),
-		taskWorkTimeRepo:       dao.NewTaskWorkTimeDao(),
-		fileRepo:               dao.NewFileDao(),
-		sourceLinkRepo:         dao.NewSourceLinkDao(),
+		//taskWorkTimeRepo:       dao.NewTaskWorkTimeDao(),
+		fileRepo:           dao.NewFileDao(),
+		sourceLinkRepo:     dao.NewSourceLinkDao(),
+		userRpcDomain:      domain.NewUserRpcDomain(),
+		taskWorkTimeDomain: domain.NewTaskWorkTimeDomain(),
 	}
 }
 
@@ -100,15 +104,18 @@ func (ts *TaskService) MemberProjectList(ctx context.Context, msg *task.TaskReqM
 		mIds = append(mIds, v.MemberCode)
 		pmMap[v.MemberCode] = v
 	}
-	userMsg := &login.UserMessage{
-		MIds: mIds,
-	}
+
 	// 调用User Grpc找到相关member信息
-	memInfoList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, userMsg)
+	//userMsg := &login.UserMessage{
+	//	MIds: mIds,
+	//}
+	//memInfoList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, userMsg)
+	memInfoList, _, err := ts.userRpcDomain.MemberList(ctx, mIds)
 	if err != nil {
-		zap.L().Error("project MemberProjectList LoginServiceClient.FindMemInfoByIds error", zap.Error(err))
+		zap.L().Error("project MemberProjectList ts.userRpcDomain.MemberList error", zap.Error(err))
 		return nil, err
 	}
+
 	var list []*task.MemberProjectMessage
 	for _, v := range memInfoList.List {
 		mpm := &task.MemberProjectMessage{
@@ -163,14 +170,19 @@ func (ts *TaskService) TaskList(ctx context.Context, msg *task.TaskReqMessage) (
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
 	//c := context.Background()
-	memList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mIds})
+	//memList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mIds})
+	//if err != nil {
+	//	zap.L().Error("project task TaskList LoginServiceClient.FindMemInfoByIds error", zap.Error(err))
+	//	return nil, err
+	//}
+	//memMap := make(map[int64]*login.MemberMessage)
+	//for _, v := range memList.List {
+	//	memMap[v.Id] = v
+	//}
+	_, memMap, err := ts.userRpcDomain.MemberList(ctx, mIds)
 	if err != nil {
-		zap.L().Error("project task TaskList LoginServiceClient.FindMemInfoByIds error", zap.Error(err))
+		zap.L().Error("project task TaskList ts.userRpcDomain.MemberList error", zap.Error(err))
 		return nil, err
-	}
-	memMap := make(map[int64]*login.MemberMessage)
-	for _, v := range memList.List {
-		memMap[v.Id] = v
 	}
 
 	for _, v := range taskDisplayList {
@@ -277,10 +289,16 @@ func (ts *TaskService) TaskSave(ctx context.Context, msg *task.TaskReqMessage) (
 	}
 	// 调用User grpc 端口查询对应用户信息
 	display := ta.ToTaskDisplay()
-	member, err := rpc.UserGrpcClient.FindMemberById(ctx, &login.UserMessage{MemId: assignTo})
+	//member, err := rpc.UserGrpcClient.FindMemberById(ctx, &login.UserMessage{MemId: assignTo})
+	//if err != nil {
+	//	return nil, err
+	//}
+	member, err := ts.userRpcDomain.MemberInfo(ctx, assignTo)
 	if err != nil {
+		zap.L().Error("project task SaveTask ts.userRpcDomain.MemberInfo error", zap.Error(err))
 		return nil, err
 	}
+
 	display.Executor = data.Executor{
 		Name:   member.Name,
 		Avatar: member.Avatar,
@@ -483,9 +501,10 @@ func (ts *TaskService) MyTaskList(ctx context.Context, msg *task.TaskReqMessage)
 	}()
 
 	go func() {
-		mList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{
-			MIds: mids,
-		})
+		//mList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{
+		//	MIds: mids,
+		//})
+		mList, _, err := ts.userRpcDomain.MemberList(ctx, mids)
 		mlistChan <- mList
 		mErrChan <- err
 	}()
@@ -499,7 +518,7 @@ func (ts *TaskService) MyTaskList(ctx context.Context, msg *task.TaskReqMessage)
 
 	mList := <-mlistChan
 	if err := <-mErrChan; err != nil {
-		zap.L().Error("project task MyTaskList rpc.UserGrpcClient.FindMemInfoByIds error", zap.Error(err))
+		zap.L().Error("project task MyTaskList ts.userRpcDomain.MemberList error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)
 	}
 	mMap := make(map[int64]*login.MemberMessage)
@@ -550,9 +569,10 @@ func (ts *TaskService) TaskRead(ctx context.Context, msg *task.TaskReqMessage) (
 	display.ProjectName = pj.Name
 	taskStages, err := ts.taskStagesRepo.FindById(ctx, taskInfo.StageCode)
 	display.StageName = taskStages.Name
-	memberMessage, err := rpc.UserGrpcClient.FindMemberById(ctx, &login.UserMessage{MemId: taskInfo.AssignTo})
+	//memberMessage, err := rpc.UserGrpcClient.FindMemberById(ctx, &login.UserMessage{MemId: taskInfo.AssignTo})
+	memberMessage, err := ts.userRpcDomain.MemberInfo(ctx, taskInfo.AssignTo)
 	if err != nil {
-		zap.L().Error("project task TaskList LoginServiceClient.FindMemInfoById error", zap.Error(err))
+		zap.L().Error("project task TaskList ts.userRpcDomain.MemberInfo error", zap.Error(err))
 		return nil, err
 	}
 	e := data.Executor{
@@ -579,11 +599,13 @@ func (ts *TaskService) ListTaskMember(ctx context.Context, msg *task.TaskReqMess
 	for _, v := range taskMemberPage {
 		mids = append(mids, v.MemberCode)
 	}
-	messageList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mids})
-	mMap := make(map[int64]*login.MemberMessage, len(messageList.List))
-	for _, v := range messageList.List {
-		mMap[v.Id] = v
-	}
+	//messageList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mids})
+	//mMap := make(map[int64]*login.MemberMessage, len(messageList.List))
+	//for _, v := range messageList.List {
+	//	mMap[v.Id] = v
+	//}
+	_, mMap, err := ts.userRpcDomain.MemberList(ctx, mids)
+
 	var taskMemeberMemssages []*task.TaskMemberMessage
 	for _, v := range taskMemberPage {
 		tm := &task.TaskMemberMessage{}
@@ -629,11 +651,13 @@ func (ts *TaskService) TaskLog(ctx context.Context, msg *task.TaskReqMessage) (*
 	for _, v := range list {
 		mIdList = append(mIdList, v.MemberCode)
 	}
-	messageList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mIdList})
-	mMap := make(map[int64]*login.MemberMessage)
-	for _, v := range messageList.List {
-		mMap[v.Id] = v
-	}
+	//messageList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mIdList})
+	//mMap := make(map[int64]*login.MemberMessage)
+	//for _, v := range messageList.List {
+	//	mMap[v.Id] = v
+	//}
+	_, mMap, err := ts.userRpcDomain.MemberList(ctx, mIdList)
+
 	for _, v := range list {
 		display := v.ToDisplay()
 		message := mMap[v.MemberCode]
@@ -654,7 +678,7 @@ func (ts *TaskService) TaskWorkTimeList(ctx context.Context, msg *task.TaskReqMe
 	taskCode := encrypts.DecryptNoErr(msg.TaskCode)
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
-	var list []*data.TaskWorkTime
+	/*var list []*data.TaskWorkTime
 	var err error
 	list, err = ts.taskWorkTimeRepo.FindWorkTimeList(ctx, taskCode)
 	if err != nil {
@@ -672,11 +696,13 @@ func (ts *TaskService) TaskWorkTimeList(ctx context.Context, msg *task.TaskReqMe
 	for _, v := range list {
 		mIdList = append(mIdList, v.MemberCode)
 	}
-	messageList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mIdList})
-	mMap := make(map[int64]*login.MemberMessage)
-	for _, v := range messageList.List {
-		mMap[v.Id] = v
-	}
+	//messageList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mIdList})
+	//mMap := make(map[int64]*login.MemberMessage)
+	//for _, v := range messageList.List {
+	//	mMap[v.Id] = v
+	//}
+
+	_, mMap, err := ts.userRpcDomain.MemberList(ctx, mIdList)
 	for _, v := range list {
 		display := v.ToDisplay()
 		message := mMap[v.MemberCode]
@@ -687,6 +713,11 @@ func (ts *TaskService) TaskWorkTimeList(ctx context.Context, msg *task.TaskReqMe
 		m.Code = message.Code
 		display.Member = m
 		displayList = append(displayList, display)
+	}*/
+	displayList, err := ts.taskWorkTimeDomain.TaskWorkTimeList(ctx, taskCode)
+	if err != nil {
+		zap.L().Error("project task TaskWorkTimeList taskWorkTimeRepo.FindWorkTimeList error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
 	}
 	var l []*task.TaskWorkTime
 	copier.Copy(&l, displayList)
@@ -702,7 +733,7 @@ func (ts *TaskService) SaveTaskWorkTime(ctx context.Context, msg *task.TaskReqMe
 	tmt.MemberCode = msg.MemberId
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
-	err := ts.taskWorkTimeRepo.Save(ctx, tmt)
+	err := ts.taskWorkTimeDomain.Save(ctx, tmt)
 	if err != nil {
 		zap.L().Error("project task SaveTaskWorkTime taskWorkTimeRepo.Save error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)
@@ -755,10 +786,10 @@ func (ts *TaskService) SaveTaskFile(ctx context.Context, msg *task.TaskFileReqMe
 	return &task.TaskFileResponse{}, nil
 }
 
-func (t *TaskService) TaskSources(ctx context.Context, msg *task.TaskReqMessage) (*task.TaskSourceResponse, error) {
+func (ts *TaskService) TaskSources(ctx context.Context, msg *task.TaskReqMessage) (*task.TaskSourceResponse, error) {
 	taskCode := encrypts.DecryptNoErr(msg.TaskCode)
 	// source_link 表中查询对应 task 的文件 id
-	sourceLinks, err := t.sourceLinkRepo.FindByTaskCode(ctx, taskCode)
+	sourceLinks, err := ts.sourceLinkRepo.FindByTaskCode(ctx, taskCode)
 	if err != nil {
 		zap.L().Error("project task SaveTaskFile sourceLinkRepo.FindByTaskCode error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)
@@ -771,7 +802,7 @@ func (t *TaskService) TaskSources(ctx context.Context, msg *task.TaskReqMessage)
 	for _, v := range sourceLinks {
 		fIdList = append(fIdList, v.SourceCode)
 	}
-	files, err := t.fileRepo.FindByIds(context.Background(), fIdList)
+	files, err := ts.fileRepo.FindByIds(context.Background(), fIdList)
 	if err != nil {
 		zap.L().Error("project task SaveTaskFile fileRepo.FindByIds error", zap.Error(err))
 		return nil, errs.GrpcError(model.DBError)
@@ -789,4 +820,29 @@ func (t *TaskService) TaskSources(ctx context.Context, msg *task.TaskReqMessage)
 	var slMsg []*task.TaskSourceMessage
 	copier.Copy(&slMsg, list)
 	return &task.TaskSourceResponse{List: slMsg}, nil
+}
+
+func (ts *TaskService) CreateComment(ctx context.Context, msg *task.TaskReqMessage) (*task.CreateCommentResponse, error) {
+	taskCode := encrypts.DecryptNoErr(msg.TaskCode)
+	taskById, err := ts.taskRepo.FindTaskById(ctx, taskCode)
+	if err != nil {
+		zap.L().Error("project task CreateComment fileRepo.FindTaskById error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+	pl := &data.ProjectLog{
+		MemberCode:   msg.MemberId,
+		Content:      msg.CommentContent,
+		Remark:       msg.CommentContent,
+		Type:         "createComment",
+		CreateTime:   time.Now().UnixMilli(),
+		SourceCode:   taskCode,
+		ActionType:   "task",
+		ToMemberCode: 0,
+		IsComment:    model.Comment,
+		ProjectCode:  taskById.ProjectCode,
+		Icon:         "plus",
+		IsRobot:      0,
+	}
+	ts.projectLogRepo.SaveProjectLog(pl)
+	return &task.CreateCommentResponse{}, nil
 }

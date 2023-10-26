@@ -23,19 +23,20 @@ func (pu *RouterProject) Route(r *gin.Engine) {
 	// 初始化Project的Grpc Client=》 ProjectGrpcClinet
 	grpc.InitProjectGrpcClient()
 	//注册验证码函数
-	hp := NewHandlerProject()
+	h := NewHandlerProject()
 	group := r.Group("/project")
 	group.Use(middleware.TokenVerify())
-	group.POST("/index", hp.index)
-	group.POST("/project/selfList", hp.myProjectList)
-	group.POST("/project", hp.myProjectList)
-	group.POST("/project_template", hp.projectTemplate)
-	group.POST("/project/save", hp.projectSave)
-	group.POST("/project/read", hp.projectRead)
-	group.POST("/project/recycle", hp.projectRecycle)
-	group.POST("/project/recovery", hp.projectRecovery)
-	group.POST("/project_collect/collect", hp.projectCollect)
-	group.POST("/project/edit", hp.projectEdit)
+	group.POST("/index", h.index)
+	group.POST("/project/selfList", h.myProjectList)
+	group.POST("/project", h.myProjectList)
+	group.POST("/project_template", h.projectTemplate)
+	group.POST("/project/save", h.projectSave)
+	group.POST("/project/read", h.projectRead)
+	group.POST("/project/recycle", h.projectRecycle)
+	group.POST("/project/recovery", h.projectRecovery)
+	group.POST("/project_collect/collect", h.projectCollect)
+	group.POST("/project/edit", h.projectEdit)
+	group.POST("/project/getLogBySelfProject", h.getLogBySelfProject)
 
 	t := NewHandleTask()
 	group.POST("/task_stages", t.taskStages)
@@ -51,4 +52,16 @@ func (pu *RouterProject) Route(r *gin.Engine) {
 	group.POST("/task/saveTaskWorkTime", t.saveTaskWorkTime)
 	group.POST("/file/uploadFiles", t.uploadFiles)
 	group.POST("/task/taskSources", t.taskSources)
+	group.POST("/task/createComment", t.createComment)
+
+	a := NewHandlerAccount()
+	group.POST("/account", a.account)
+
+	d := NewHandlerDepartment()
+	group.POST("/department", d.department)
+	group.POST("/department/save", d.save)
+	group.POST("/department/read", d.read)
+
+	auth := NewAuth()
+	group.POST("/auth", auth.authList)
 }

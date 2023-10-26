@@ -1,5 +1,6 @@
-package model
+package file
 
+// UploadFileReq request struct
 type UploadFileReq struct {
 	TaskCode         string `form:"taskCode"`
 	ProjectCode      string `form:"projectCode"`

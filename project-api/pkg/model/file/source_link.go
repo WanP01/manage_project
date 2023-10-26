@@ -1,4 +1,4 @@
-package model
+package file
 
 type SourceLink struct {
 	Id               int64        `json:"id"`

@@ -14,14 +14,14 @@ func main() {
 	//路由注册
 	router.InitRouter(r)
 
+	// User grpc 连接注册 //初始化rpc调用
+	router.InitUserGrpc()
+
 	//gRPC注册
 	gc := router.RegisterGrpc()
 
 	//etcd 注冊
 	router.RegisterEtcd()
-
-	// User grpc 连接注册 //初始化rpc调用
-	router.InitUserGrpc()
 
 	//用于grpc 优雅退出
 	stop := func() {

@@ -9,6 +9,7 @@ import (
 	"project-api/pkg/model"
 	"project-api/pkg/model/menu"
 	pro "project-api/pkg/model/project"
+	"project-api/pkg/model/project_log"
 	common "project-common"
 	"project-common/errs"
 	"project-grpc/project"
@@ -214,7 +215,7 @@ func (hp *HandlerProject) projectRecycle(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success([]int{}))
 }
 
-func (p *HandlerProject) projectRecovery(ctx *gin.Context) {
+func (hp *HandlerProject) projectRecovery(ctx *gin.Context) {
 	result := &common.Result{}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
@@ -232,7 +233,7 @@ func (p *HandlerProject) projectRecovery(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success([]int{}))
 }
 
-func (p *HandlerProject) projectCollect(ctx *gin.Context) {
+func (hp *HandlerProject) projectCollect(ctx *gin.Context) {
 	result := &common.Result{}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
@@ -253,7 +254,7 @@ func (p *HandlerProject) projectCollect(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result.Success([]int{}))
 }
 
-func (p *HandlerProject) projectEdit(ctx *gin.Context) {
+func (hp *HandlerProject) projectEdit(ctx *gin.Context) {
 	result := &common.Result{}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
@@ -271,4 +272,29 @@ func (p *HandlerProject) projectEdit(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, result.Fail(code, msg))
 	}
 	ctx.JSON(http.StatusOK, result.Success([]int{}))
+}
+
+func (hp *HandlerProject) getLogBySelfProject(ctx *gin.Context) {
+	result := &common.Result{}
+	var page = &model.Page{}
+	page.Bind(ctx)
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background()
+	msg := &project.ProjectRpcMessage{
+		MemberId: ctx.GetInt64("memberId"),
+		Page:     page.Page,
+		PageSize: page.PageSize,
+	}
+	projectLogResponse, err := grpc.ProjectGrpcClient.GetLogBySelfProject(c, msg)
+	if err != nil {
+		code, msg := errs.ParseGrpcError(err)
+		ctx.JSON(http.StatusOK, result.Fail(code, msg))
+	}
+	var list []*project_log.ProjectLog
+	copier.Copy(&list, projectLogResponse.List)
+	if list == nil {
+		list = []*project_log.ProjectLog{}
+	}
+	ctx.JSON(http.StatusOK, result.Success(list))
 }

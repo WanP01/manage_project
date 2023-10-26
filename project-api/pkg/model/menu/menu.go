@@ -1,5 +1,6 @@
 package menu
 
+// Menu 响应struct
 type Menu struct {
 	Id         int64   `json:"id"`
 	Pid        int64   `json:"pid"`

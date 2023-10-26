@@ -9,12 +9,12 @@ import (
 	"project-common/tms"
 	"project-grpc/project"
 	"project-grpc/user/login"
+	"project-project/domain"
 	"project-project/internal/dao"
 	"project-project/internal/data"
 	"project-project/internal/database"
 	"project-project/internal/database/tran"
 	"project-project/internal/repo"
-	"project-project/internal/rpc"
 	"project-project/pkg/model"
 	"strconv"
 	"time"
@@ -29,6 +29,9 @@ type ProjectService struct {
 	projectTemplateRepo    repo.ProjectTemplateRepo
 	taskStagesTemplateRepo repo.TaskStagesTemplateRepo
 	taskStagesRepo         repo.TaskStagesRepo
+	projectLogRepo         repo.ProjectLogRepo
+	taskRepo               repo.TaskRepo
+	userRpcDomain          *domain.UserRpcDomain //依赖注入
 }
 
 func New() *ProjectService {
@@ -40,6 +43,9 @@ func New() *ProjectService {
 		projectTemplateRepo:    dao.NewProjectTemplateDao(),
 		taskStagesTemplateRepo: dao.NewTaskStagesTemplateDao(),
 		taskStagesRepo:         dao.NewTaskStagesDao(),
+		projectLogRepo:         dao.NewProjectLogDao(),
+		taskRepo:               dao.NewTaskDao(),
+		userRpcDomain:          domain.NewUserRpcDomain(),
 	}
 }
 
@@ -250,9 +256,10 @@ func (ps *ProjectService) FindProjectDetail(ctx context.Context, msg *project.Pr
 	//获得所有者信息（所有者Id ）
 	ownerId := projectAndMember.IsOwner
 	//与User模块互动查找用户信息（ownerName，ownerAvatar）
-	meminfo, err := rpc.UserGrpcClient.FindMemberById(ctx, &login.UserMessage{MemId: ownerId})
+	//meminfo, err := rpc.UserGrpcClient.FindMemberById(ctx, &login.UserMessage{MemId: ownerId})
+	meminfo, err := ps.userRpcDomain.MemberInfo(ctx, ownerId)
 	if err != nil {
-		zap.L().Error("project  FindProjectDetail rpc.UserGrpcClient.FindMemberById", zap.Error(err))
+		zap.L().Error("project  FindProjectDetail ps.userRpcDomain.MemberInfo", zap.Error(err))
 		return nil, err
 	}
 	//是否被收藏
@@ -310,4 +317,116 @@ func (ps *ProjectService) UpdateProject(ctx context.Context, msg *project.Update
 		return nil, errs.GrpcError(model.DBError)
 	}
 	return &project.UpdateProjectResponse{}, nil
+}
+
+func (ps *ProjectService) GetLogBySelfProject(ctx context.Context, msg *project.ProjectRpcMessage) (*project.ProjectLogResponse, error) {
+	//根据用户id查询当前的用户的日志表
+	projectLogs, total, err := ps.projectLogRepo.FindLogByMemberCode(context.Background(), msg.MemberId, msg.Page, msg.PageSize)
+	if err != nil {
+		zap.L().Error("project ProjectService::GetLogBySelfProject projectLogRepo.FindLogByMemberCode error", zap.Error(err))
+		return nil, errs.GrpcError(model.DBError)
+	}
+
+	//查询项目信息
+	pIdList := make([]int64, len(projectLogs))
+	mIdList := make([]int64, len(projectLogs))
+	taskIdList := make([]int64, len(projectLogs))
+	for _, v := range projectLogs {
+		pIdList = append(pIdList, v.ProjectCode)
+		mIdList = append(mIdList, v.MemberCode)
+		taskIdList = append(taskIdList, v.SourceCode)
+	}
+
+	// go 协程查询
+
+	proChan := make(chan map[int64]*data.Project)
+	proErr := make(chan error)
+	memChan := make(chan map[int64]*login.MemberMessage)
+	memErr := make(chan error)
+	taskChan := make(chan map[int64]*data.Task)
+	taskErr := make(chan error)
+
+	pMap := make(map[int64]*data.Project)
+	mMap := make(map[int64]*login.MemberMessage)
+	tMap := make(map[int64]*data.Task)
+
+	//查询project
+	go func() {
+		projects, err := ps.projectRepo.FindProjectByIds(ctx, pIdList)
+		if err != nil {
+			zap.L().Error("project ProjectService::GetLogBySelfProject projectLogRepo.FindProjectByIds error", zap.Error(err))
+			proErr <- errs.GrpcError(model.DBError)
+		}
+		for _, v := range projects {
+			pMap[v.Id] = v
+		}
+		proChan <- pMap
+	}()
+
+	//查询member
+	go func() {
+		//messageList, err := rpc.UserGrpcClient.FindMemInfoByIds(ctx, &login.UserMessage{MIds: mIdList})
+		//for _, v := range messageList.List {
+		//	mMap[v.Id] = v
+		//}
+		_, mMap, err := ps.userRpcDomain.MemberList(ctx, mIdList)
+		if err != nil {
+			zap.L().Error("project ProjectService::GetLogBySelfProject projectLogRepo.FindTaskByIds error", zap.Error(err))
+			memErr <- errs.GrpcError(model.DBError)
+		}
+		memChan <- mMap
+	}()
+
+	// 查询task
+	go func() {
+		tasks, err := ps.taskRepo.FindTaskByIds(context.Background(), taskIdList)
+		if err != nil {
+			zap.L().Error("project ProjectService::GetLogBySelfProject projectLogRepo.FindTaskByIds error", zap.Error(err))
+			taskErr <- errs.GrpcError(model.DBError)
+		}
+		for _, v := range tasks {
+			tMap[v.Id] = v
+		}
+		taskChan <- tMap
+	}()
+
+	c, cancer := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancer()
+	var count int
+	// 获取channel 信息
+	for {
+		select {
+		case pMap = <-proChan:
+			count += 1
+		case mMap = <-memChan:
+			count += 1
+		case tMap = <-taskChan:
+			count += 1
+		case err = <-proErr:
+			return nil, err
+		case err = <-memErr:
+			return nil, err
+		case err = <-taskErr:
+			return nil, err
+		case <-c.Done(): // 定时退出
+			return nil, errs.GrpcError(model.DBError)
+		}
+		if count == 3 {
+			break
+		}
+	}
+
+	//拼装数据
+	var list []*data.IndexProjectLogDisplay
+	for _, v := range projectLogs {
+		display := v.ToIndexDisplay()
+		display.ProjectName = pMap[v.ProjectCode].Name
+		display.MemberAvatar = mMap[v.MemberCode].Avatar
+		display.MemberName = mMap[v.MemberCode].Name
+		display.TaskName = tMap[v.SourceCode].Name
+		list = append(list, display)
+	}
+	var msgList []*project.ProjectLogMessage
+	copier.Copy(&msgList, list)
+	return &project.ProjectLogResponse{List: msgList, Total: total}, nil
 }

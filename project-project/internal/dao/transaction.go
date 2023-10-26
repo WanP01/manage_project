@@ -19,6 +19,7 @@ func (td *TransactinonDao) Action(f func(conn database.DbConn) error) error {
 	td.conn.Commit()
 	return nil
 }
+
 func NewTransactionDao() *TransactinonDao {
 	return &TransactinonDao{
 		conn: gorms.NewTran(),
