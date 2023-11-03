@@ -18,6 +18,7 @@ redis:
 
 grpc:
   addr: "127.0.0.1:8881"
+  etcdAddr: "127.0.0.1:8881"
   name: "user"
   verison: "1.0.0"
   weight: 2
@@ -39,3 +40,6 @@ jwt:
   refreshExp: 14
   accessSecret: msproject
   refreshSecret: ms_pproject
+
+jaeger:
+  endpoints: "http://localhost:14268/api/traces"

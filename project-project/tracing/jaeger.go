@@ -5,11 +5,12 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"project-user/config"
 )
 
 // 固定套路
 func JaegerTraceProvider() (*sdktrace.TracerProvider, error) {
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint("http://localhost:14268/api/traces"))) //实现otel的接口
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(config.AppConf.JaegerC.Endpoints))) //实现otel的接口
 	if err != nil {
 		return nil, err
 	}

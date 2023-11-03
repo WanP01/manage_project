@@ -19,6 +19,7 @@ func GetReader(brokers []string, groupId, topic string) *KafkaReader {
 		MinBytes: 10e3, // 10KB
 		MaxBytes: 10e6, // 10MB
 	})
+	fmt.Printf("kafka GetReader %s", brokers)
 	k := &KafkaReader{R: r}
 	//go k.readMsg()
 	return k

@@ -101,7 +101,7 @@ func RegisterEtcd() {
 	// 构建 grpc 服务Server信息
 	srvInfo := discovery.Server{
 		Name: config.AppConf.Gc.Name,
-		Addr: config.AppConf.Gc.Addr,
+		Addr: config.AppConf.Gc.EtcdAddr,
 	}
 	//在Etcd 上注册服务信息
 	r := discovery.NewRegister(config.AppConf.Ec.Addrs, logs.LG)

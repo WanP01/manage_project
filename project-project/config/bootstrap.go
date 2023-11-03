@@ -29,7 +29,7 @@ func InitBootstrap() *BootConf {
 	conf.viper.SetConfigName("bootstrap")
 	conf.viper.SetConfigType("yaml")
 	conf.viper.AddConfigPath(workDir + "/config")
-	conf.viper.AddConfigPath("D:/go/project/test_project/project-project/config")
+	//conf.viper.AddConfigPath("D:/go/project/test_project/project-project/config")
 	err := conf.viper.ReadInConfig()
 	if err != nil {
 		log.Fatalln(err)

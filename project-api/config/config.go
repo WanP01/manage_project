@@ -11,10 +11,12 @@ import (
 var AppConf = InitConfig()
 
 type Config struct {
-	viper *viper.Viper
-	Sc    *ServerConf
-	Ec    *EtcdConf
-	Mc    *MinioConf
+	viper   *viper.Viper
+	Sc      *ServerConf
+	Ec      *EtcdConf
+	Mc      *MinioConf
+	Kc      *KafkaConf
+	JaegerC *JaegerConfig
 }
 type ServerConf struct {
 	Name string
@@ -31,6 +33,16 @@ type MinioConf struct {
 	SecretKey  string
 	UseSSL     bool
 	BucketName string
+}
+
+type JaegerConfig struct {
+	Endpoints string
+}
+
+type KafkaConf struct {
+	Addr  []string
+	Group string
+	Topic string
 }
 
 func InitConfig() *Config {
@@ -50,6 +62,8 @@ func InitConfig() *Config {
 	conf.InitZapLog()
 	conf.InitEtcdConfig()
 	conf.InitMinioConfig()
+	conf.InitJaegerConfig()
+	conf.InitKafkaConfig()
 	return conf
 }
 
@@ -100,4 +114,24 @@ func (c *Config) InitMinioConfig() {
 		BucketName: c.viper.GetString("minIO.bucketName"),
 	}
 	c.Mc = mc
+}
+
+func (c *Config) InitJaegerConfig() {
+	mc := &JaegerConfig{
+		Endpoints: c.viper.GetString("jaeger.endpoints"),
+	}
+	c.JaegerC = mc
+}
+
+func (c *Config) InitKafkaConfig() {
+	kc := &KafkaConf{}
+	var addr []string
+	err := c.viper.UnmarshalKey("kafka.addr", &addr)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	kc.Addr = addr
+	kc.Topic = c.viper.GetString("kafka.topic")
+	kc.Group = c.viper.GetString("kafka.group")
+	c.Kc = kc
 }

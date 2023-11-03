@@ -16,14 +16,15 @@ import (
 var AppConf = InitConfig()
 
 type Config struct {
-	viper *viper.Viper
-	Sc    *ServerConf
-	Gc    *GrpcConf
-	Ec    *EtcdConf
-	Mc    *MysqlConf
-	Jc    *JwtConf
-	Dc    *DbConf
-	Kc    *KafkaConf
+	viper   *viper.Viper
+	Sc      *ServerConf
+	Gc      *GrpcConf
+	Ec      *EtcdConf
+	Mc      *MysqlConf
+	Jc      *JwtConf
+	Dc      *DbConf
+	Kc      *KafkaConf
+	JaegerC *JaegerConfig
 }
 type ServerConf struct {
 	Name string
@@ -31,10 +32,11 @@ type ServerConf struct {
 }
 
 type GrpcConf struct {
-	Name    string
-	Addr    string
-	Version string
-	Weight  string
+	Name     string
+	Addr     string
+	EtcdAddr string
+	Version  string
+	Weight   string
 }
 
 type EtcdConf struct {
@@ -68,6 +70,10 @@ type KafkaConf struct {
 	Addr  []string
 	Group string
 	Topic string
+}
+
+type JaegerConfig struct {
+	Endpoints string
 }
 
 func InitConfig() *Config {
@@ -136,6 +142,7 @@ func (c *Config) ReLoadAllConfig() {
 	c.InitJwtConfig()
 	c.InitDbConfig()
 	c.InitKafkaConfig()
+	c.InitJaegerConfig()
 
 	//重新创建相关的客户端
 	c.ReConnRedis()
@@ -154,10 +161,11 @@ func (c *Config) InitServerConfig() {
 // InitGrpcConfig GRPC服务配置读取
 func (c *Config) InitGrpcConfig() {
 	gc := &GrpcConf{
-		Addr:    c.viper.GetString("grpc.addr"),
-		Name:    c.viper.GetString("grpc.name"),
-		Version: c.viper.GetString("grpc.version"),
-		Weight:  c.viper.GetString("grpc.weight"),
+		Addr:     c.viper.GetString("grpc.addr"),
+		Name:     c.viper.GetString("grpc.name"),
+		EtcdAddr: c.viper.GetString("grpc.etcdAddr"),
+		Version:  c.viper.GetString("grpc.version"),
+		Weight:   c.viper.GetString("grpc.weight"),
 	}
 	c.Gc = gc
 }
@@ -254,4 +262,11 @@ func (c *Config) InitKafkaConfig() {
 	kc.Topic = c.viper.GetString("kafka.topic")
 	kc.Group = c.viper.GetString("kafka.group")
 	c.Kc = kc
+}
+
+func (c *Config) InitJaegerConfig() {
+	mc := &JaegerConfig{
+		Endpoints: c.viper.GetString("jaeger.endpoints"),
+	}
+	c.JaegerC = mc
 }

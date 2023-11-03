@@ -14,12 +14,13 @@ import (
 var AppConf = InitConfig()
 
 type Config struct {
-	viper *viper.Viper
-	Sc    *ServerConf
-	Gc    *GrpcConf
-	Ec    *EtcdConf
-	Mc    *MysqlConf
-	Jc    *JwtConf
+	viper   *viper.Viper
+	Sc      *ServerConf
+	Gc      *GrpcConf
+	Ec      *EtcdConf
+	Mc      *MysqlConf
+	Jc      *JwtConf
+	JaegerC *JaegerConfig
 }
 type ServerConf struct {
 	Name string
@@ -27,10 +28,11 @@ type ServerConf struct {
 }
 
 type GrpcConf struct {
-	Name    string
-	Addr    string
-	Version string
-	Weight  string
+	Name     string
+	Addr     string
+	EtcdAddr string
+	Version  string
+	Weight   string
 }
 
 type EtcdConf struct {
@@ -52,6 +54,10 @@ type JwtConf struct {
 	RefreshSecret string
 }
 
+type JaegerConfig struct {
+	Endpoints string
+}
+
 func InitConfig() *Config {
 	conf := &Config{viper: viper.New()}
 	workDir, _ := os.Getwd()
@@ -71,6 +77,7 @@ func InitConfig() *Config {
 	conf.InitEtcdConfig()
 	conf.InitMysqlConfig()
 	conf.InitJwtConfig()
+	conf.InitJaegerConfig()
 	return conf
 }
 
@@ -86,10 +93,11 @@ func (c *Config) InitServerConfig() {
 // InitGrpcConfig GRPC服务配置读取
 func (c *Config) InitGrpcConfig() {
 	gc := &GrpcConf{
-		Addr:    c.viper.GetString("grpc.addr"),
-		Name:    c.viper.GetString("grpc.name"),
-		Version: c.viper.GetString("grpc.version"),
-		Weight:  c.viper.GetString("grpc.weight"),
+		Addr:     c.viper.GetString("grpc.addr"),
+		EtcdAddr: c.viper.GetString("grpc.etcdAddr"),
+		Name:     c.viper.GetString("grpc.name"),
+		Version:  c.viper.GetString("grpc.version"),
+		Weight:   c.viper.GetString("grpc.weight"),
 	}
 	c.Gc = gc
 }
@@ -153,4 +161,11 @@ func (c *Config) InitJwtConfig() {
 		RefreshSecret: c.viper.GetString("jwt.refreshSecret"),
 	}
 	c.Jc = jc
+}
+
+func (c *Config) InitJaegerConfig() {
+	mc := &JaegerConfig{
+		Endpoints: c.viper.GetString("jaeger.endpoints"),
+	}
+	c.JaegerC = mc
 }

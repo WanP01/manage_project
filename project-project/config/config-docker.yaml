@@ -1,6 +1,6 @@
 server:
   name: "project-project"
-  addr: "127.0.0.1:8081"
+  addr: "0.0.0.0:8081"
 
 zap:
   debugFileName: "/logs/debug/project-debug.log"
@@ -17,7 +17,8 @@ redis:
   db: 0
 
 grpc:
-  addr: "127.0.0.1:8882"
+  etcdAddr: "project-project:8882"
+  addr: "0.0.0.0:8882"
   name: "project"
   verison: "1.0.0"
   weight: 2
@@ -34,8 +35,41 @@ mysql:
   db: msproject
 
 
+db:
+  separation: false
+  master:
+    name: master
+    username: root
+    password: root
+    host: "mysql8"
+    port: 3306
+    db: msproject
+  slave:
+    - username: root
+      password: root
+      host: "mysql8"
+      port: 3306
+      db: msproject_slave1
+      name: slave1
+    - username: root
+      password: root
+      host: "mysql8"
+      port: 3306
+      db: msproject_slave2
+      name: slave2
+
 jwt:
   accessExp: 7
   refreshExp: 14
   accessSecret: msproject
   refreshSecret: ms_pproject
+
+kafka:
+  addr:
+    - "kafka:9092"
+  group: cache_group
+  topic: msproject_cache
+
+jaeger:
+  endpoints: "http://jaeger:14268/api/traces"
+

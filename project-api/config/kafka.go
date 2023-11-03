@@ -5,7 +5,7 @@ import "project-common/kafkas"
 var kw *kafkas.KafkaWriter
 
 func InitKafkaWriter() func() {
-	kw = kafkas.GetWriter("localhost:9092")
+	kw = kafkas.GetWriter(AppConf.Kc.Addr[0])
 	return kw.Close
 }
 

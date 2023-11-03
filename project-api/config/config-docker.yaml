@@ -1,0 +1,32 @@
+server:
+  name: "project-api"
+  addr: "0.0.0.0:80"
+
+zap:
+  debugFileName: "/msproject/project-api/logs/debug/project-debug.log"
+  infoFileName: "/msproject/project-api/logs/info/project-info.log"
+  warnFileName: "/msproject/project-api/logs/error/project-error.log"
+  maxSize: 500,
+  maxAge: 28,
+  MaxBackups: 3
+
+etcd:
+  addrs:
+    - "etcd3:2379"
+
+
+minIO:
+  endpoint: "minio:9009"
+  accessKey: "Nt5iAYxVhOgL6DESYAch"
+  secretKey: "rDCeW5iMCZPYuTYfxfajskznEGOKZ7ZfrzREf0cV"
+  useSSL: false
+  bucketName: "msproject"
+
+jaeger:
+  endpoints: "http://jaeger:14268/api/traces"
+
+kafka:
+  addr:
+    - "kafka:9092"
+  group: cache_group
+  topic: msproject_cache

@@ -60,7 +60,7 @@ func (r *Resolver) Build(target resolver.Target, cc resolver.ClientConn, opts re
 	r.keyPrifix = BuildPrefix(Server{Name: target.Endpoint(), Version: strings.Trim(target.URL.Opaque, "/")})
 
 	fmt.Printf("target.URL.Path: %v\n", target.URL.Path)
-	fmt.Printf("strings.Trim(target.URL.Opaque, \"/\"): %v\n", strings.Trim(target.URL.Opaque, "/"))
+	fmt.Printf("strings.Trim(target.URL.Opaque, \"/\"): %s\n", strings.Trim(target.URL.Opaque, "/"))
 	fmt.Printf("r.keyPrifix: %v\n", r.keyPrifix)
 
 	//启动 register.Start() => 同步etcd key-value && 实时监测并更新
@@ -128,6 +128,7 @@ func (r *Resolver) watch() {
 		case res, ok := <-r.watchCh: //有 key相关的 event 变动会返回 watchresponse （type WatchChan <-chan WatchResponse）
 			if ok {
 				r.update(res.Events) // 提取 watchresponse 内的 Events 数组 Events []*Event
+				fmt.Printf("r.srvAddrsList: %v\n", r.srvAddrsList)
 			}
 		case <-ticker.C:
 			if err := r.sync(); err != nil { // 定时全面更新同步 etcd 的 key-value 信息（会清空旧有 grpc 缓存地址）
