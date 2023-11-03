@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AccountServiceClient interface {
 	Account(ctx context.Context, in *AccountReqMessage, opts ...grpc.CallOption) (*AccountResponse, error)
+	AccountSave(ctx context.Context, in *AccountSaveReq, opts ...grpc.CallOption) (*AccountResponse, error)
 }
 
 type accountServiceClient struct {
@@ -42,11 +43,21 @@ func (c *accountServiceClient) Account(ctx context.Context, in *AccountReqMessag
 	return out, nil
 }
 
+func (c *accountServiceClient) AccountSave(ctx context.Context, in *AccountSaveReq, opts ...grpc.CallOption) (*AccountResponse, error) {
+	out := new(AccountResponse)
+	err := c.cc.Invoke(ctx, "/account.service.v1.AccountService/AccountSave", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountServiceServer is the server API for AccountService service.
 // All implementations must embed UnimplementedAccountServiceServer
 // for forward compatibility
 type AccountServiceServer interface {
 	Account(context.Context, *AccountReqMessage) (*AccountResponse, error)
+	AccountSave(context.Context, *AccountSaveReq) (*AccountResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
 }
 
@@ -56,6 +67,9 @@ type UnimplementedAccountServiceServer struct {
 
 func (UnimplementedAccountServiceServer) Account(context.Context, *AccountReqMessage) (*AccountResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Account not implemented")
+}
+func (UnimplementedAccountServiceServer) AccountSave(context.Context, *AccountSaveReq) (*AccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AccountSave not implemented")
 }
 func (UnimplementedAccountServiceServer) mustEmbedUnimplementedAccountServiceServer() {}
 
@@ -88,6 +102,24 @@ func _AccountService_Account_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_AccountSave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AccountSaveReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).AccountSave(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/account.service.v1.AccountService/AccountSave",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).AccountSave(ctx, req.(*AccountSaveReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountService_ServiceDesc is the grpc.ServiceDesc for AccountService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -98,6 +130,10 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Account",
 			Handler:    _AccountService_Account_Handler,
+		},
+		{
+			MethodName: "AccountSave",
+			Handler:    _AccountService_AccountSave_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

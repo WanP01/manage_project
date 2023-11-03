@@ -14,3 +14,11 @@ etcd:
   addrs:
     - "127.0.0.1:2379"
 
+
+minIO:
+  endpoint: "localhost:9009"
+  accessKey: "Nt5iAYxVhOgL6DESYAch"
+  secretKey: "rDCeW5iMCZPYuTYfxfajskznEGOKZ7ZfrzREf0cV"
+  useSSL: false
+  bucketName: "msproject"
+  

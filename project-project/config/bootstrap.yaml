@@ -1,0 +1,8 @@
+nacos:
+  namespace: 32e20b56-63e8-4722-9e3d-0eb174da336c
+  group: dev
+  ipAddr: 127.0.0.1
+  port: 8848
+  scheme: http
+  contextPath: "/nacos"
+  dataId: "project_config.yaml"

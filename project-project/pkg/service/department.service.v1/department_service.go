@@ -5,7 +5,9 @@ import (
 	"github.com/jinzhu/copier"
 	"project-common/encrypts"
 	"project-common/errs"
+	"project-common/kafkas"
 	"project-grpc/department"
+	"project-project/config"
 	"project-project/domain"
 	"project-project/internal/dao"
 	"project-project/internal/database/tran"
@@ -44,6 +46,11 @@ func (d *DepartmentService) List(ctx context.Context, msg *department.Department
 	}
 	var list []*department.DepartmentMessage
 	copier.Copy(&list, dps)
+	config.SendLog(kafkas.Info("List", "DepartmentService.List", kafkas.FieldMap{
+		"organizationCode":     organizationCode,
+		"parentDepartmentCode": parentDepartmentCode,
+		"page":                 msg.Page,
+	}))
 	return &department.ListDepartmentMessage{List: list, Total: total}, nil
 }
 
@@ -57,6 +64,7 @@ func (d *DepartmentService) Save(ctx context.Context, msg *department.Department
 	if msg.ParentDepartmentCode != "" {
 		parentDepartmentCode = encrypts.DecryptNoErr(msg.ParentDepartmentCode)
 	}
+	//创建部门
 	dp, err := d.departmentDomain.Save(
 		ctx,
 		organizationCode,
@@ -66,6 +74,8 @@ func (d *DepartmentService) Save(ctx context.Context, msg *department.Department
 	if err != nil {
 		return &department.DepartmentMessage{}, errs.GrpcError(err)
 	}
+	// 创建部门—member关系
+
 	var res = &department.DepartmentMessage{}
 	copier.Copy(res, dp)
 	return res, nil

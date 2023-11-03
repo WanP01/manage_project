@@ -56,7 +56,7 @@ func (p *ProjectTemplateDao) FindProjectTemplateCustom(ctx context.Context, memI
 func (p *ProjectTemplateDao) FindProjectTemplateAll(ctx context.Context, organizationCode int64, page int64, size int64) ([]data.ProjectTemplate, int64, error) {
 	var ptm []data.ProjectTemplate
 	err := p.conn.Session(ctx).Model(&data.ProjectTemplate{}).
-		Where("organization_code=?", organizationCode).
+		Where("organization_code=?", organizationCode).Or("organization_code IS NULL").
 		Offset(int((page - 1) * size)).
 		Limit(int(size)).
 		Find(&ptm).Error
@@ -65,7 +65,7 @@ func (p *ProjectTemplateDao) FindProjectTemplateAll(ctx context.Context, organiz
 	}
 	var total int64
 	err = p.conn.Session(ctx).Model(&data.ProjectTemplate{}).
-		Where("organization_code=?", organizationCode).
+		Where("organization_code=?", organizationCode).Or("organization_code IS NULL").
 		Count(&total).Error
 	return ptm, total, err
 }

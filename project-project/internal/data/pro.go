@@ -53,7 +53,7 @@ type ProjectMember struct {
 	MemberCode  int64
 	JoinTime    int64
 	IsOwner     int64
-	Authorize   string
+	Authorize   int64
 }
 
 func (*ProjectMember) TableName() string {
@@ -67,7 +67,7 @@ type ProjectAndMember struct {
 	MemberCode  int64
 	JoinTime    int64
 	IsOwner     int64
-	Authorize   string
+	Authorize   int64
 	OwnerName   string
 	Collected   int
 }

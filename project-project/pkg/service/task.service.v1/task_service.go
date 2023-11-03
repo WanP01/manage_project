@@ -10,6 +10,7 @@ import (
 	"project-common/tms"
 	"project-grpc/task"
 	"project-grpc/user/login"
+	"project-project/config"
 	"project-project/domain"
 	"project-project/internal/dao"
 	"project-project/internal/data"
@@ -309,7 +310,13 @@ func (ts *TaskService) TaskSave(ctx context.Context, msg *task.TaskReqMessage) (
 
 	// 添加任务动态=》 ms_project_log
 	createProjectLog(ts.projectLogRepo, ta.ProjectCode, ta.Id, ta.Name, ta.AssignTo, "create", "task")
+
+	// 保存的时候需要添加 kafka 缓存删除信息
+	//发送kafka 缓存删除
+	config.SendCache([]byte("task"))
+	
 	return tm, nil
+
 }
 
 // 辅助函数（添加任务动态）

@@ -33,9 +33,37 @@ mysql:
   port: 3306
   db: msproject
 
+db:
+  separation: false
+  master:
+    name: master
+    username: root
+    password: root
+    host: 127.0.0.1
+    port: 3306
+    db: msproject
+  slave:
+    - username: root
+      password: root
+      host: 127.0.0.1
+      port: 3306
+      db: msproject_slave1
+      name: slave1
+    - username: root
+      password: root
+      host: 127.0.0.1
+      port: 3306
+      db: msproject_slave2
+      name: slave2
 
 jwt:
   accessExp: 7
   refreshExp: 14
   accessSecret: msproject
   refreshSecret: ms_pproject
+
+kafka:
+  addr:
+    - 127.0.0.1:9092
+  group: cache_group
+  topic: msproject_cache

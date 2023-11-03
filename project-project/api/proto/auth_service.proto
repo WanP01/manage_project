@@ -58,8 +58,21 @@ message AuthNodesResponse {
   repeated string list = 1;
 }
 
+
+message AuthSaveReq {
+  string  OrganizationCode =1;
+  string Title =2;
+  int32  Sort =4;
+  int32  Status =5;
+  string Desc =6;
+  int64 CreateBy = 7;
+  int32  IsDefault =8;
+  string Type =9;
+}
+
 service AuthService {
   rpc AuthList(AuthReqMessage) returns(ListAuthMessage){}
   rpc Apply(AuthReqMessage) returns(ApplyResponse){}
   rpc AuthNodesByMemberId(AuthReqMessage) returns(AuthNodesResponse){}
+  rpc AuthSave(AuthSaveReq) returns(ProjectAuth){}
 }

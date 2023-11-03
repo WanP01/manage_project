@@ -9,7 +9,6 @@ import (
 	"project-project/internal/database"
 	"project-project/internal/repo"
 	"project-project/pkg/model"
-	"strconv"
 )
 
 type ProjectAuthDomain struct {
@@ -28,6 +27,22 @@ func NewProjectAuthDomain() *ProjectAuthDomain {
 		projectAuthNodeDomain: NewProjectAuthNodeDomain(),
 		memberAccountDomain:   NewMemberAccountDomain(),
 	}
+}
+
+func (d *ProjectAuthDomain) AuthListNoOrg(ctx context.Context) ([]*data.ProjectAuthDisplay, *errs.BError) {
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	list, err := d.projectAuthRepo.FindAuthListNoOrg(ctx)
+	if err != nil {
+		zap.L().Error("project AuthList projectAuthRepo.FindAuthList error", zap.Error(err))
+		return nil, model.DBError
+	}
+	var pdList []*data.ProjectAuthDisplay
+	for _, v := range list {
+		display := v.ToDisplay()
+		pdList = append(pdList, display)
+	}
+	return pdList, nil
 }
 
 func (d *ProjectAuthDomain) AuthList(ctx context.Context, orgCode int64) ([]*data.ProjectAuthDisplay, *errs.BError) {
@@ -75,7 +90,7 @@ func (d *ProjectAuthDomain) AllNodeAndAuth(ctx context.Context, authId int64) ([
 	return list, checkedList, nil
 }
 
-func (d *ProjectAuthDomain) Save(ctx context.Context, conn database.DbConn, authId int64, nodes []string) *errs.BError {
+func (d *ProjectAuthDomain) AuthNodeSave(ctx context.Context, conn database.DbConn, authId int64, nodes []string) *errs.BError {
 	err := d.projectAuthNodeDomain.Save(ctx, conn, authId, nodes)
 	if err != nil {
 		return err
@@ -93,11 +108,28 @@ func (d *ProjectAuthDomain) AuthNodes(ctx context.Context, memberId int64) ([]st
 	}
 	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	//defer cancel()
-	authorize := account.Authorize
-	authId, _ := strconv.ParseInt(authorize, 10, 64)
-	authNodeList, dbErr := d.projectAuthNodeDomain.AuthNodeList(ctx, authId)
+
+	authNodeList, dbErr := d.projectAuthNodeDomain.AuthNodeList(ctx, account.Authorize)
 	if dbErr != nil {
 		return nil, model.DBError
 	}
 	return authNodeList, nil
+}
+
+func (d *ProjectAuthDomain) AuthSave(ctx context.Context, pa *data.ProjectAuth) *errs.BError {
+
+	err := d.projectAuthRepo.Save(ctx, pa)
+	if err != nil {
+		return model.DBError
+	}
+	return nil
+}
+
+func (d *ProjectAuthDomain) FindAuthByTitleAndOrgCode(ctx context.Context, title string, orgCode int64) (*data.ProjectAuth, *errs.BError) {
+
+	prA, err := d.projectAuthRepo.FindAuthByTitleAndOrgCode(ctx, title, orgCode)
+	if err != nil {
+		return nil, model.DBError
+	}
+	return prA, nil
 }

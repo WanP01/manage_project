@@ -10,14 +10,16 @@ import (
 	"project-common/errs"
 	"project-common/jwts"
 	"project-common/tms"
+	"project-grpc/account"
+	"project-grpc/auth"
 	"project-grpc/user/login"
-	"project-project/domain"
 	"project-user/config"
 	"project-user/internal/dao"
 	"project-user/internal/data/member"
 	"project-user/internal/data/organization"
 	"project-user/internal/database"
 	"project-user/internal/database/tran"
+	"project-user/internal/domain"
 	"project-user/internal/repo"
 	"project-user/pkg/model"
 	"strconv"
@@ -33,7 +35,9 @@ type LoginService struct {
 	memberRepo       repo.MemberRepo
 	organizationRepo repo.OrganizationRepo
 	transaction      tran.Transaction
-	projectDomain    *domain.ProjectNodeDomain
+	projectRpcDomain *domain.ProjectRpcDomain
+	accountRpcDomain *domain.AccountRpcDomain
+	authRpcDomain    *domain.AuthRpcDomain
 }
 
 func New() *LoginService {
@@ -42,7 +46,9 @@ func New() *LoginService {
 		memberRepo:       dao.NewMemberDao(),
 		organizationRepo: dao.NewOrganizationDao(),
 		transaction:      dao.NewTransactionDao(),
-		projectDomain:    domain.NewProjectNodeDomain(),
+		projectRpcDomain: domain.NewProjectRpcDomain(),
+		accountRpcDomain: domain.NewAccountRpcDomain(),
+		authRpcDomain:    domain.NewAuthRpcDomain(),
 	}
 }
 
@@ -146,6 +152,73 @@ func (ls *LoginService) Register(ctx context.Context, msg *login.RegisterMessage
 				return errs.GrpcError(model.DBError)
 			}
 			//生成一个账户，账户的授权角色 是成员，新生成一个角色（如果没有），同时将此角色的授权node 生成
+			// 1. 查询是否有对应organization_code 的 auth
+
+			listAuthMessage, err := ls.authRpcDomain.AuthList(ctx, &auth.AuthReqMessage{OrganizationCode: encrypts.EncryptNoErr(org.Id)})
+			if err != nil {
+				zap.L().Error("Register db authRpcDomain.AuthList organizationCode error", zap.Error(err))
+				return errs.GrpcError(model.DBError)
+			}
+
+			var DefaultAuth *auth.ProjectAuth
+
+			//2. 不存在就新生成 auth 和对应 auth_node
+			if listAuthMessage.List == nil {
+				//2.1 生成角色
+				// 查找默认的auth（无 organization_code）
+				authMessage, err := ls.authRpcDomain.AuthList(ctx, &auth.AuthReqMessage{})
+				if err != nil {
+					zap.L().Error("Register db authRpcDomain.AuthList  No organizationCode error", zap.Error(err))
+					return errs.GrpcError(model.DBError)
+				}
+
+				for _, v := range authMessage.List {
+					authSaveReq := &auth.AuthSaveReq{}
+					// 保存自己的 auth（加入organization_code & createBy）
+					copier.Copy(&authSaveReq, v)
+					authSaveReq.CreateBy = mem.Id
+					authSaveReq.OrganizationCode = encrypts.EncryptNoErr(org.Id)
+
+					newListAuthMessage, err := ls.authRpcDomain.AuthSave(ctx, authSaveReq)
+					if err != nil {
+						zap.L().Error("Register db authRpcDomain.AuthSave error", zap.Error(err))
+						return errs.GrpcError(model.DBError)
+					}
+
+					// 保存默认的Auth（管理员权限）
+					if newListAuthMessage.IsDefault == 1 {
+						DefaultAuth = newListAuthMessage
+					}
+
+					//2.2 生成node_auth
+					//获取默认auth（NoOrg）的check list表
+					ApplyList, err := ls.authRpcDomain.Apply(ctx, &auth.AuthReqMessage{AuthId: v.Id, Action: "getnode"})
+					if err != nil {
+						zap.L().Error("Register db authRpcDomain.Apply \"getnode\" error", zap.Error(err))
+						return errs.GrpcError(model.DBError)
+					}
+
+					// 插入自己的 auth_node表
+					_, err = ls.authRpcDomain.Apply(ctx, &auth.AuthReqMessage{AuthId: newListAuthMessage.Id, Action: "save", Nodes: ApplyList.CheckedList})
+					if err != nil {
+						zap.L().Error("Register db authRpcDomain.Apply \"save\" error", zap.Error(err))
+						return errs.GrpcError(model.DBError)
+					}
+				}
+			}
+
+			// 4.  生成账户（用户，角色相关联）
+			accountReq := &account.AccountSaveReq{}
+			copier.Copy(&accountReq, mem)
+			accountReq.MemberCode = encrypts.EncryptNoErr(mem.Id)
+			accountReq.OrganizationCode = encrypts.EncryptNoErr(org.Id)
+			accountReq.Authorize = encrypts.EncryptNoErr(DefaultAuth.Id)
+			accountReq.IsOwner = 1
+			_, err = ls.accountRpcDomain.AccountSave(ctx, accountReq)
+			if err != nil {
+				zap.L().Error("Register db AccountSave error", zap.Error(err))
+				return errs.GrpcError(model.DBError)
+			}
 			return nil
 		})
 	// 5. 返回结果

@@ -70,6 +70,14 @@ func (d *MemberAccountDomain) FindAccount(ctx context.Context, memberId int64) (
 	return account, nil
 }
 
+func (d *MemberAccountDomain) Save(ctx context.Context, memberAccount *data.MemberAccount) *errs.BError {
+	err := d.memberAccountRepo.Save(ctx, memberAccount)
+	if err != nil {
+		return model.DBError
+	}
+	return nil
+}
+
 func NewMemberAccountDomain() *MemberAccountDomain {
 	return &MemberAccountDomain{
 		memberAccountRepo: dao.NewMemberAccountDao(),

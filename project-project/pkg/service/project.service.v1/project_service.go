@@ -206,7 +206,7 @@ func (ps *ProjectService) SaveProject(ctx context.Context, msg *project.ProjectR
 			MemberCode:  msg.MemberId,
 			JoinTime:    time.Now().UnixMilli(),
 			IsOwner:     msg.MemberId,
-			Authorize:   "",
+			//Authorize:   nil,
 		}
 		err = ps.projectRepo.SaveProjectMember(conn, ctx, pm)
 		if err != nil {

@@ -58,9 +58,9 @@ func (hu *HandlerUser) register(ctx *gin.Context) {
 		return
 	}
 	// 3.调用User grpc服务 获取响应
-	c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	//c := context.Background() // 调试用
+	//c, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	//defer cancel()
+	c := context.Background() // 调试用
 	// copier 库实现反射复制
 	msg := &login.RegisterMessage{}
 	err = copier.Copy(msg, req)

@@ -8,9 +8,11 @@ import (
 	"project-grpc/auth"
 	"project-project/domain"
 	"project-project/internal/dao"
+	"project-project/internal/data"
 	"project-project/internal/database"
 	"project-project/internal/database/tran"
 	"project-project/internal/repo"
+	"time"
 )
 
 type AuthService struct {
@@ -29,14 +31,24 @@ func New() *AuthService {
 }
 
 func (as *AuthService) AuthList(ctx context.Context, msg *auth.AuthReqMessage) (*auth.ListAuthMessage, error) {
-	organizationCode := encrypts.DecryptNoErr(msg.OrganizationCode)
-	listPage, total, err := as.projectAuthDomain.AuthListPage(ctx, organizationCode, msg.Page, msg.PageSize)
-	if err != nil {
-		return nil, errs.GrpcError(err)
+	if msg.OrganizationCode != "" {
+		organizationCode := encrypts.DecryptNoErr(msg.OrganizationCode)
+		listPage, total, err := as.projectAuthDomain.AuthListPage(ctx, organizationCode, msg.Page, msg.PageSize)
+		if err != nil {
+			return nil, errs.GrpcError(err)
+		}
+		var prList []*auth.ProjectAuth
+		copier.Copy(&prList, listPage)
+		return &auth.ListAuthMessage{List: prList, Total: total}, nil
+	} else {
+		listPage, err := as.projectAuthDomain.AuthListNoOrg(ctx)
+		if err != nil {
+			return nil, errs.GrpcError(err)
+		}
+		var prList []*auth.ProjectAuth
+		copier.Copy(&prList, listPage)
+		return &auth.ListAuthMessage{List: prList}, nil
 	}
-	var prList []*auth.ProjectAuth
-	copier.Copy(&prList, listPage)
-	return &auth.ListAuthMessage{List: prList, Total: total}, nil
 }
 
 func (as *AuthService) Apply(ctx context.Context, msg *auth.AuthReqMessage) (*auth.ApplyResponse, error) {
@@ -57,7 +69,7 @@ func (as *AuthService) Apply(ctx context.Context, msg *auth.AuthReqMessage) (*au
 		//先删在存 加事务
 		authId := msg.AuthId
 		err := as.transaction.Action(func(conn database.DbConn) error {
-			err := as.projectAuthDomain.Save(ctx, conn, authId, nodes)
+			err := as.projectAuthDomain.AuthNodeSave(ctx, conn, authId, nodes)
 			return err
 		})
 		if err != nil {
@@ -73,4 +85,32 @@ func (as *AuthService) AuthNodesByMemberId(ctx context.Context, msg *auth.AuthRe
 		return nil, errs.GrpcError(err)
 	}
 	return &auth.AuthNodesResponse{List: list}, nil
+}
+
+func (as *AuthService) AuthSave(ctx context.Context, msg *auth.AuthSaveReq) (*auth.ProjectAuth, error) {
+	organizationCode := encrypts.DecryptNoErr(msg.OrganizationCode)
+	pa := &data.ProjectAuth{
+		OrganizationCode: organizationCode,
+		Title:            msg.Title,
+		CreateAt:         time.Now().UnixMilli(),
+		Sort:             int(msg.Sort),
+		Status:           int(msg.Status),
+		Desc:             msg.Desc,
+		CreateBy:         msg.CreateBy,
+		IsDefault:        int(msg.IsDefault),
+		Type:             msg.Type,
+	}
+	err := as.projectAuthDomain.AuthSave(ctx, pa)
+	if err != nil {
+		return nil, errs.GrpcError(err)
+	}
+
+	paT, err := as.projectAuthDomain.FindAuthByTitleAndOrgCode(ctx, msg.Title, organizationCode)
+	if err != nil {
+		return nil, errs.GrpcError(err)
+	}
+	prA := &auth.ProjectAuth{}
+	copier.Copy(&prA, paT)
+	return prA, nil
+
 }

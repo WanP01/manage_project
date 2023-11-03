@@ -54,6 +54,29 @@ message ProjectAuth{
   int32 CanDelete = 11;
 }
 
+//save request
+message AccountSaveReq {
+  string memberCode = 1;
+  string OrganizationCode = 2;
+  string DepartmentCode = 3;
+  string Authorize = 4;
+  int32 isOwner = 5;
+  string name = 6;
+  string mobile = 7;
+  string email = 8;
+  string createTime = 9;
+  string lastLoginTime = 10;
+  int32 status = 11;
+  string Description = 12;
+  string Avatar = 13;
+  string Position = 14;
+  string Department = 15;
+  string MembarAccountCode = 16;
+  string Departments = 17;
+}
+
+
 service AccountService {
   rpc Account(AccountReqMessage) returns(AccountResponse){}
+  rpc AccountSave(AccountSaveReq) returns(AccountResponse){}
 }

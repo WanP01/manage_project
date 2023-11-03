@@ -16,7 +16,8 @@ var ignores = []string{
 	"project/login",
 	"project/login/getCaptcha",
 	"project/organization",
-	"project/auth/apply"}
+	"project/auth/apply",
+}
 
 func NodeAuthCheck() func(*gin.Context) {
 	return func(ctx *gin.Context) {

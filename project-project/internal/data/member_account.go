@@ -11,7 +11,7 @@ type MemberAccount struct {
 	OrganizationCode int64
 	DepartmentCode   int64
 	MemberCode       int64
-	Authorize        string
+	Authorize        int64
 	IsOwner          int
 	Name             string
 	Mobile           string
@@ -40,7 +40,7 @@ func (a *MemberAccount) ToDisplay() *MemberAccountDisplay {
 	md.CreateTime = tms.FormatByMill(a.CreateTime)
 	md.LastLoginTime = tms.FormatByMill(a.LastLoginTime)
 	md.StatusText = a.StatusText()
-	md.AuthorizeArr = []string{a.Authorize}
+	md.AuthorizeArr = []string{encrypts.EncryptNoErr(a.Authorize)}
 	return md
 }
 

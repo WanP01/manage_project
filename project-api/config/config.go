@@ -14,6 +14,7 @@ type Config struct {
 	viper *viper.Viper
 	Sc    *ServerConf
 	Ec    *EtcdConf
+	Mc    *MinioConf
 }
 type ServerConf struct {
 	Name string
@@ -22,6 +23,14 @@ type ServerConf struct {
 
 type EtcdConf struct {
 	Addrs []string
+}
+
+type MinioConf struct {
+	Endpoint   string
+	AccessKey  string
+	SecretKey  string
+	UseSSL     bool
+	BucketName string
 }
 
 func InitConfig() *Config {
@@ -40,6 +49,7 @@ func InitConfig() *Config {
 	conf.InitServerConfig()
 	conf.InitZapLog()
 	conf.InitEtcdConfig()
+	conf.InitMinioConfig()
 	return conf
 }
 
@@ -79,4 +89,15 @@ func (c *Config) InitEtcdConfig() {
 	}
 	ec.Addrs = addrs
 	c.Ec = ec
+}
+
+func (c *Config) InitMinioConfig() {
+	mc := &MinioConf{
+		Endpoint:   c.viper.GetString("minIO.endpoint"),
+		AccessKey:  c.viper.GetString("minIO.accessKey"),
+		SecretKey:  c.viper.GetString("minIO.secretKey"),
+		UseSSL:     c.viper.GetBool("minIO.useSSL"),
+		BucketName: c.viper.GetString("minIO.bucketName"),
+	}
+	c.Mc = mc
 }

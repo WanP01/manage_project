@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"log"
 	"os"
 
@@ -20,6 +22,8 @@ type Config struct {
 	Ec    *EtcdConf
 	Mc    *MysqlConf
 	Jc    *JwtConf
+	Dc    *DbConf
+	Kc    *KafkaConf
 }
 type ServerConf struct {
 	Name string
@@ -43,6 +47,14 @@ type MysqlConf struct {
 	Host     string
 	Port     int
 	Db       string
+	Name     string
+}
+
+// 主从复制
+type DbConf struct {
+	Master     MysqlConf
+	Slave      []MysqlConf
+	Separation bool
 }
 
 type JwtConf struct {
@@ -52,26 +64,82 @@ type JwtConf struct {
 	RefreshSecret string
 }
 
+type KafkaConf struct {
+	Addr  []string
+	Group string
+	Topic string
+}
+
 func InitConfig() *Config {
 	conf := &Config{viper: viper.New()}
-	workDir, _ := os.Getwd()
-	conf.viper.SetConfigName("config")
-	conf.viper.SetConfigType("yaml")
-	conf.viper.AddConfigPath("/etc/manage_project/project-project") // docker linux 环境下读取配置
-	conf.viper.AddConfigPath(workDir + "/config")
-	conf.viper.AddConfigPath(workDir + "/project-project/config") // windows 源代码下读取配置
-	err := conf.viper.ReadInConfig()
-	if err != nil {
-		log.Fatalln(err)
-		return nil
+	conf.viper.SetConfigType("yaml") //提前设置读取的文件类型
+	//先从nacos读取配置，如果读取不到 在本地读取
+	nacosClient := InitNacosClient() //连接
+	configYaml, err2 := nacosClient.confClient.GetConfig(vo.ConfigParam{
+		DataId: nacosClient.NacosConf.DataId,
+		Group:  nacosClient.NacosConf.Group,
+	}) //读取string类型的配置文件
+	if err2 != nil {
+		log.Fatalln(err2)
 	}
-	conf.InitServerConfig()
-	conf.InitZapLog()
-	conf.InitGrpcConfig()
-	conf.InitEtcdConfig()
-	conf.InitMysqlConfig()
-	conf.InitJwtConfig()
+
+	//监听配置变化
+	err2 = nacosClient.confClient.ListenConfig(vo.ConfigParam{
+		DataId: nacosClient.NacosConf.DataId,
+		Group:  nacosClient.NacosConf.Group,
+		OnChange: func(namespace, group, dataId, data string) {
+			//重新读取nacos的最新文件
+			log.Printf("load nacos config changed %s \n", data)
+			err := conf.viper.ReadConfig(bytes.NewBuffer([]byte(data)))
+			if err != nil {
+				log.Printf("load nacos config changed err : %s \n", err.Error())
+			}
+			//所有的配置应该重新读取
+			conf.ReLoadAllConfig()
+		},
+	})
+	if err2 != nil {
+		log.Fatalln(err2)
+	}
+
+	if configYaml != "" {
+		err := conf.viper.ReadConfig(bytes.NewBuffer([]byte(configYaml)))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		log.Printf("load nacos config %s \n", configYaml)
+	} else { //如果远程读取不到，就在本地读取
+		workDir, _ := os.Getwd()
+		conf.viper.SetConfigName("config")                              //设置文件名称
+		conf.viper.AddConfigPath("/etc/manage_project/project-project") // docker linux 环境下读取配置
+		conf.viper.AddConfigPath(workDir + "/config")
+		conf.viper.AddConfigPath(workDir + "/project-project/config") // windows 源代码下读取配置
+		err := conf.viper.ReadInConfig()
+		if err != nil {
+			log.Fatalln(err)
+			return nil
+		}
+	}
+
+	//配置载入conf =》 Appconf
+	conf.ReLoadAllConfig()
 	return conf
+}
+
+func (c *Config) ReLoadAllConfig() {
+	//读取最新配置
+	c.InitServerConfig()
+	c.InitZapLog()
+	c.InitGrpcConfig()
+	c.InitEtcdConfig()
+	c.InitMysqlConfig()
+	c.InitJwtConfig()
+	c.InitDbConfig()
+	c.InitKafkaConfig()
+
+	//重新创建相关的客户端
+	c.ReConnRedis()
+	c.ReConnMysql()
 }
 
 // InitServerConfig Server配置读取
@@ -153,4 +221,37 @@ func (c *Config) InitJwtConfig() {
 		RefreshSecret: c.viper.GetString("jwt.refreshSecret"),
 	}
 	c.Jc = jc
+}
+
+func (c *Config) InitDbConfig() {
+	mc := &DbConf{}
+	mc.Separation = c.viper.GetBool("db.separation")
+	var slaves []MysqlConf
+	err := c.viper.UnmarshalKey("db.slave", &slaves)
+	if err != nil {
+		panic(err)
+	}
+	master := MysqlConf{
+		Username: c.viper.GetString("db.master.username"),
+		Password: c.viper.GetString("db.master.password"),
+		Host:     c.viper.GetString("db.master.host"),
+		Port:     c.viper.GetInt("db.master.port"),
+		Db:       c.viper.GetString("db.master.db"),
+	}
+	mc.Master = master
+	mc.Slave = slaves
+	c.Dc = mc
+}
+
+func (c *Config) InitKafkaConfig() {
+	kc := &KafkaConf{}
+	var addr []string
+	err := c.viper.UnmarshalKey("kafka.addr", &addr)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	kc.Addr = addr
+	kc.Topic = c.viper.GetString("kafka.topic")
+	kc.Group = c.viper.GetString("kafka.group")
+	c.Kc = kc
 }
