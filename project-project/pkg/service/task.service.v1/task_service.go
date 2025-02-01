@@ -314,7 +314,7 @@ func (ts *TaskService) TaskSave(ctx context.Context, msg *task.TaskReqMessage) (
 	// 保存的时候需要添加 kafka 缓存删除信息
 	//发送kafka 缓存删除
 	config.SendCache([]byte("task"))
-	
+
 	return tm, nil
 
 }
@@ -395,7 +395,7 @@ func (ts *TaskService) SortTask(ctx context.Context, preTaskCode int64, nextTask
 				ta.Sort = (prepare.Sort + next.Sort) / 2
 			}
 			if prepare == nil {
-				ta.Sort = 0
+				ta.Sort = next.Sort / 2
 			}
 
 		} else { // 没有后一位task的时候（说明在末尾）

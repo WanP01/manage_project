@@ -8,7 +8,7 @@ import (
 	"project-user/config"
 )
 
-// 固定套路
+// JaegerTraceProvider 固定套路
 func JaegerTraceProvider() (*sdktrace.TracerProvider, error) {
 	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(config.AppConf.JaegerC.Endpoints))) //实现otel的接口
 	if err != nil {

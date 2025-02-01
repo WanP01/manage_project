@@ -181,7 +181,7 @@ func (r *Resolver) sync() error {
 	if err != nil {
 		return err
 	}
-	//清空就有信息
+	//清空旧有信息
 	r.srvAddrsList = []resolver.Address{}
 
 	// 将value (key("/name/version/addr" : value ( Server{name,version,addr,weight}))) 还原为 Server 结构体
